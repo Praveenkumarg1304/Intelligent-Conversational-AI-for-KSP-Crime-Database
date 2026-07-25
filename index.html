@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KSP Crime Intelligence — Visualization Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.0.1/leaflet-heat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink-950:#080B10; --ink-900:#0B0F16; --ink-800:#121826; --ink-700:#1A2233; --ink-600:#232D42;
+    --brass-400:#E4C567; --brass-500:#C9A227; --brass-600:#A6821C;
+    --alert-400:#E0685F; --alert-500:#C1443C; --alert-600:#9A332C;
+    --teal:#3FA79A; --paper-100:#F3EFE6; --paper-300:#D9D3C4;
+    --mute-400:#7A8290; --mute-500:#5C6474;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--ink-950); color:var(--paper-100); font-family:'Inter',sans-serif;
+       background-image:linear-gradient(rgba(228,197,103,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(228,197,103,0.04) 1px, transparent 1px);
+       background-size:28px 28px;}
+  h1,h2,h3,h4{font-family:'Oswald',sans-serif; margin:0; letter-spacing:0.02em;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  a{color:inherit;}
+  button{font-family:'Inter',sans-serif; cursor:pointer;}
+  ::-webkit-scrollbar{width:8px; height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--ink-600); border-radius:4px;}
+
+  /* ---------- Login ---------- */
+  #login-view{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;}
+  .login-card{width:100%; max-width:420px; background:var(--ink-900); border:1px solid var(--ink-600);
+              box-shadow:0 1px 0 rgba(228,197,103,0.08), 0 8px 24px rgba(0,0,0,0.45); border-radius:2px; overflow:hidden;}
+  .login-head{background:var(--ink-800); padding:22px 26px; border-bottom:2px solid var(--brass-500); position:relative;}
+  .badge-stamp{position:absolute; top:16px; right:18px; border:2px solid var(--alert-500); color:var(--alert-400);
+               font-family:'JetBrains Mono',monospace; font-size:10px; padding:3px 7px; transform:rotate(6deg); opacity:0.8; letter-spacing:1px;}
+  .login-head h1{color:var(--brass-400); font-size:22px;}
+  .login-head p{color:var(--mute-400); font-size:12px; margin-top:4px; font-family:'JetBrains Mono',monospace;}
+  .login-body{padding:24px 26px 28px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--mute-400); margin-bottom:6px;}
+  .field input, .field select{width:100%; background:var(--ink-800); border:1px solid var(--ink-600); color:var(--paper-100);
+                               padding:10px 12px; border-radius:2px; font-size:14px; font-family:'Inter',sans-serif;}
+  .field input:focus, .field select:focus{outline:none; border-color:var(--brass-500);}
+  .btn-primary{width:100%; background:var(--brass-500); color:var(--ink-950); border:none; padding:12px; font-weight:600;
+               border-radius:2px; font-size:14px; letter-spacing:0.03em; transition:background 0.15s;}
+  .btn-primary:hover{background:var(--brass-400);}
+  .login-hint{margin-top:14px; font-size:11px; color:var(--mute-500); line-height:1.5;}
+
+  /* ---------- App shell ---------- */
+  #app{display:none; min-height:100vh; grid-template-columns:220px 1fr;}
+  .sidebar{background:var(--ink-900); border-right:1px solid var(--ink-600); display:flex; flex-direction:column; padding:18px 0;}
+  .sidebar-brand{padding:0 18px 18px; border-bottom:1px solid var(--ink-700); margin-bottom:12px;}
+  .sidebar-brand h1{font-size:15px; color:var(--brass-400); line-height:1.3;}
+  .sidebar-brand span{font-size:10px; color:var(--mute-500); font-family:'JetBrains Mono',monospace;}
+  .nav-item{display:flex; align-items:center; gap:10px; padding:10px 18px; margin:2px 8px; border-radius:2px; font-size:13px;
+            color:var(--mute-400); cursor:pointer; transition:background 0.12s, color 0.12s;}
+  .nav-item:hover{background:var(--ink-800); color:var(--paper-100);}
+  .nav-item.active{background:var(--ink-700); color:var(--brass-400); border-left:2px solid var(--brass-500);}
+  .nav-code{font-family:'JetBrains Mono',monospace; font-size:10px; background:var(--ink-700); color:var(--brass-500);
+            border:1px solid var(--ink-600); padding:2px 5px; border-radius:2px; min-width:32px; text-align:center;}
+  .nav-item.active .nav-code{border-color:var(--brass-500);}
+  .nav-item.locked{opacity:0.35; cursor:not-allowed;}
+  .sidebar-footer{margin-top:auto; padding:14px 18px; border-top:1px solid var(--ink-700); font-size:11px; color:var(--mute-500);}
+  .sidebar-footer .who{color:var(--paper-100); font-size:12px; margin-bottom:2px;}
+  .sidebar-footer button{background:none; border:1px solid var(--ink-600); color:var(--mute-400); padding:6px 10px; margin-top:8px;
+                          border-radius:2px; font-size:11px; width:100%;}
+  .sidebar-footer button:hover{border-color:var(--alert-500); color:var(--alert-400);}
+
+  .main{display:flex; flex-direction:column; min-height:100vh; overflow:hidden;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; padding:14px 24px; border-bottom:1px solid var(--ink-700);
+          background:var(--ink-900);}
+  .topbar h2{font-size:18px; color:var(--paper-100);}
+  .topbar-right{display:flex; align-items:center; gap:10px;}
+  .lang-toggle{background:var(--ink-800); border:1px solid var(--ink-600); color:var(--mute-400); padding:6px 10px; border-radius:2px; font-size:11px;}
+  .lang-toggle.active-lang{color:var(--brass-400); border-color:var(--brass-500);}
+  .content{padding:20px 24px; overflow-y:auto; flex:1;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* case tab signature */
+  .case-tab{position:relative; display:inline-block; background:var(--brass-500); color:var(--ink-950);
+            font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600; letter-spacing:0.06em;
+            padding:4px 12px 4px 10px; clip-path:polygon(0 0, 100% 0, 92% 100%, 0% 100%); margin-bottom:-1px;}
+  .panel{background:var(--ink-900); border:1px solid var(--ink-600); border-radius:2px; box-shadow:0 1px 0 rgba(228,197,103,0.06);
+         margin-bottom:18px;}
+  .panel-body{padding:16px 18px;}
+
+  /* filter bar */
+  .filterbar{display:flex; flex-wrap:wrap; gap:10px; align-items:end; padding:14px 18px; background:var(--ink-800);
+             border:1px solid var(--ink-600); border-radius:2px; margin-bottom:18px;}
+  .filterbar .fitem{display:flex; flex-direction:column; gap:5px;}
+  .filterbar label{font-size:10px; text-transform:uppercase; color:var(--mute-400); letter-spacing:0.06em;}
+  .filterbar select, .filterbar input{background:var(--ink-700); border:1px solid var(--ink-600); color:var(--paper-100);
+                                       padding:7px 9px; border-radius:2px; font-size:12px;}
+  input[type="date"]::-webkit-calendar-picker-indicator{ filter:invert(0.9) brightness(1.3); cursor:pointer; opacity:0.85; padding:2px; border-radius:2px; }
+  input[type="date"]::-webkit-calendar-picker-indicator:hover{ opacity:1; background:var(--ink-600); }
+  input[type="date"]{ color-scheme:dark; }
+  .btn-sm{background:var(--brass-500); color:var(--ink-950); border:none; padding:8px 14px; border-radius:2px; font-size:12px; font-weight:600;}
+  .btn-sm:hover{background:var(--brass-400);}
+  .btn-ghost{background:transparent; border:1px solid var(--ink-600); color:var(--mute-400); padding:8px 14px; border-radius:2px; font-size:12px;}
+  .btn-ghost:hover{border-color:var(--mute-400); color:var(--paper-100);}
+
+  /* KPI cards */
+  .kpi-row{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px;}
+  .kpi-card{background:var(--ink-900); border:1px solid var(--ink-600); border-radius:2px; padding:16px 18px; position:relative; overflow:hidden;}
+  .kpi-card .icon{position:absolute; top:14px; right:14px; width:30px; height:30px; opacity:0.35;}
+  .kpi-card .num{font-family:'JetBrains Mono',monospace; font-size:28px; color:var(--brass-400); font-weight:600;}
+  .kpi-card .lbl{font-size:11px; color:var(--mute-400); text-transform:uppercase; letter-spacing:0.06em; margin-top:4px;}
+  .kpi-card.alert .num{color:var(--alert-400);}
+  .kpi-card.teal .num{color:var(--teal);}
+
+  .grid-2{display:grid; grid-template-columns:1.3fr 1fr; gap:16px;}
+  .grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+  canvas{max-height:260px;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th{text-align:left; color:var(--mute-400); text-transform:uppercase; font-size:10px; letter-spacing:0.05em;
+     padding:8px 10px; border-bottom:1px solid var(--ink-600);}
+  td{padding:9px 10px; border-bottom:1px solid var(--ink-700); color:var(--paper-300);}
+  tr:hover td{background:var(--ink-800);}
+  .status-pill{font-family:'JetBrains Mono',monospace; font-size:10px; padding:3px 8px; border-radius:10px; display:inline-block;}
+  .st-Under{background:rgba(228,197,103,0.15); color:var(--brass-400); border:1px solid var(--brass-600);}
+  .st-Charge{background:rgba(63,167,154,0.15); color:var(--teal); border:1px solid var(--teal);}
+  .st-Closed{background:rgba(122,130,144,0.15); color:var(--mute-400); border:1px solid var(--mute-500);}
+  .st-Undetected{background:rgba(224,104,95,0.15); color:var(--alert-400); border:1px solid var(--alert-500);}
+  .link-btn{background:none; border:1px solid var(--ink-600); color:var(--brass-400); padding:4px 9px; border-radius:2px; font-size:11px;}
+  .link-btn:hover{border-color:var(--brass-500);}
+
+  #map-container{height:520px; border-radius:2px; overflow:hidden; border:1px solid var(--ink-600);}
+  .map-controls{display:flex; gap:8px; margin-bottom:12px;}
+
+  /* modal */
+  #modal-overlay{display:none; position:fixed; inset:0; background:rgba(3,5,8,0.75); z-index:999; align-items:center; justify-content:center; padding:20px;}
+  #modal-content{background:var(--ink-900); border:1px solid var(--brass-600); max-width:640px; width:100%; max-height:86vh; overflow-y:auto; border-radius:2px;}
+  .modal-head{padding:16px 20px; border-bottom:1px solid var(--ink-600); display:flex; justify-content:space-between; align-items:center;}
+  .modal-body{padding:18px 20px;}
+  .modal-close{background:none; border:none; color:var(--mute-400); font-size:20px; line-height:1;}
+  .detail-row{display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--ink-700); font-size:12.5px;}
+  .detail-row .k{color:var(--mute-400);}
+  .detail-row .v{color:var(--paper-100); font-family:'JetBrains Mono',monospace; text-align:right;}
+
+  /* chatbot */
+  .chat-wrap{display:flex; flex-direction:column; height:70vh; background:var(--ink-900); border:1px solid var(--ink-600); border-radius:2px;}
+  .chat-log{flex:1; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:12px;}
+  .msg{max-width:75%; padding:10px 14px; border-radius:6px; font-size:13px; line-height:1.5;}
+  .msg.bot{background:var(--ink-800); border:1px solid var(--ink-600); align-self:flex-start; color:var(--paper-100);}
+  .msg.user{background:var(--brass-500); color:var(--ink-950); align-self:flex-end;}
+  .msg .ref{display:block; margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--teal);}
+  .chips{display:flex; flex-wrap:wrap; gap:8px; padding:0 18px 14px;}
+  .chip{background:var(--ink-800); border:1px solid var(--ink-600); color:var(--mute-400); font-size:11px; padding:6px 11px; border-radius:14px;}
+  .chip:hover{color:var(--brass-400); border-color:var(--brass-500);}
+  .chat-input{display:flex; gap:8px; padding:14px 18px; border-top:1px solid var(--ink-600);}
+  .chat-input input{flex:1; background:var(--ink-800); border:1px solid var(--ink-600); color:var(--paper-100); padding:10px 12px; border-radius:2px;}
+
+  /* network */
+  #network-svg{width:100%; height:460px; background:var(--ink-800); border:1px solid var(--ink-600); border-radius:2px;}
+  .net-node rect{fill:var(--ink-700); stroke:var(--brass-500); stroke-width:1.2; cursor:pointer;}
+  .net-node.accused rect{stroke:var(--alert-500);}
+  .net-node.asset rect{stroke:var(--teal);}
+  .net-node text{fill:var(--paper-100); font-size:10.5px; font-family:'JetBrains Mono',monospace;}
+  .net-edge{stroke:var(--mute-500); stroke-width:1.5;}
+  .net-edge.hl{stroke:var(--brass-400); stroke-width:2.5;}
+  .net-node.hl rect{stroke:var(--brass-400); stroke-width:2.5;}
+
+  .pred-result{display:flex; align-items:center; gap:20px; padding:18px; background:var(--ink-800); border:1px solid var(--ink-600); border-radius:2px; margin-bottom:14px;}
+  .pred-gauge{font-family:'JetBrains Mono',monospace; font-size:36px; font-weight:700;}
+  .risk-Low{color:var(--teal);} .risk-Medium{color:var(--brass-400);} .risk-High{color:var(--alert-400);} .risk-Critical{color:var(--alert-500);}
+  .bullet-list{list-style:none; padding:0; margin:0; font-size:12.5px; color:var(--paper-300);}
+  .bullet-list li{padding:6px 0 6px 16px; border-left:2px solid var(--brass-600); margin-bottom:6px;}
+
+  .rank-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--ink-700); font-size:12.5px;}
+  .rank-badge{font-family:'JetBrains Mono',monospace; font-size:11px; background:var(--ink-700); color:var(--brass-400); padding:2px 7px; border-radius:2px; min-width:24px; text-align:center;}
+  .rank-bar-bg{flex:1; background:var(--ink-700); height:8px; border-radius:4px; overflow:hidden;}
+  .rank-bar-fill{height:100%; background:var(--brass-500);}
+
+  .disclaimer{font-size:10.5px; color:var(--mute-500); text-align:center; padding:10px; border-top:1px solid var(--ink-700);}
+
+  @media (max-width:900px){
+    #app{grid-template-columns:1fr;}
+    .sidebar{display:none;}
+    .kpi-row{grid-template-columns:repeat(2,1fr);}
+    .grid-2, .grid-3{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login-view">
+  <div class="login-card">
+    <div class="login-head">
+      <span class="badge-stamp">DEMO</span>
+      <h1 data-i18n="login_title">KSP Crime Intelligence</h1>
+      <p>Intelligent Conversational AI · Datathon 2026 Prototype</p>
+    </div>
+    <div class="login-body">
+      <div id="login-form">
+        <div class="field">
+          <label data-i18n="username">Your Name</label>
+          <input type="text" id="login-username" placeholder="e.g. Praveen Kumar" oninput="validateLoginForm()" onkeydown="if(event.key==='Enter')handleLogin(event)" autocomplete="off" />
+          <div id="login-name-error" style="display:none;color:var(--alert-400);font-size:11px;margin-top:5px;">Please enter a name using letters only (no numbers or symbols).</div>
+        </div>
+        <div class="field">
+          <label data-i18n="password">Password</label>
+          <input type="password" id="login-password" placeholder="••••••••" oninput="validateLoginForm()" onkeydown="if(event.key==='Enter')handleLogin(event)" autocomplete="off" />
+          <div id="login-password-error" style="display:none;color:var(--alert-400);font-size:11px;margin-top:5px;">Password must be at least 6 characters.</div>
+        </div>
+        <div class="field">
+          <label data-i18n="role">Role</label>
+          <select id="login-role">
+            <option value="Constable">Constable — view only</option>
+            <option value="SHO" selected>Sub-Inspector / SHO</option>
+            <option value="Analyst">Analyst</option>
+            <option value="Admin">SP / Admin</option>
+          </select>
+        </div>
+        <button type="button" class="btn-primary" data-i18n="login_btn" id="login-submit-btn" disabled onclick="handleLogin(event)">Sign in to Console</button>
+      </div>
+      <p class="login-hint">Demo build — enter any name and a password of 6+ characters; both are validated client-side but not checked against a real account, since this prototype has no backend/user database yet. Role selection demonstrates role-based module access (constables see read-only dashboard/map/records; analysts and admins get network analysis and predictions). All case data below is synthetic, generated for this prototype only.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <h1>KSP Crime<br/>Intelligence</h1>
+      <span>CASE FILE CONSOLE · v0.1</span>
+    </div>
+    <div class="nav-item active" data-view="dashboard" onclick="showView('dashboard')"><span class="nav-code">DSH</span><span data-i18n="nav_dashboard">Dashboard</span></div>
+    <div class="nav-item" data-view="map" onclick="showView('map')"><span class="nav-code">MAP</span><span data-i18n="nav_map">Crime Map</span></div>
+    <div class="nav-item" data-view="records" onclick="showView('records')"><span class="nav-code">REC</span><span data-i18n="nav_records">Case Records</span></div>
+    <div class="nav-item" data-view="network" data-restrict="1" onclick="showView('network')"><span class="nav-code">NET</span><span data-i18n="nav_network">Criminal Network</span></div>
+    <div class="nav-item" data-view="chatbot" onclick="showView('chatbot')"><span class="nav-code">BOT</span><span data-i18n="nav_chatbot">AI Assistant</span></div>
+    <div class="nav-item" data-view="predictions" data-restrict="1" onclick="showView('predictions')"><span class="nav-code">PRD</span><span data-i18n="nav_predictions">Predictions</span></div>
+    <div class="sidebar-footer">
+      <div class="who" id="who-label">—</div>
+      <div id="role-note"></div>
+      <button onclick="handleLogout()" data-i18n="logout">Log out</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h2 id="page-title">Dashboard</h2>
+      <div class="topbar-right">
+        <button class="lang-toggle active-lang" id="lang-en" onclick="setLang('en')">EN</button>
+        <button class="lang-toggle" id="lang-kn" onclick="setLang('kn')">ಕನ್ನಡ</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="view active" id="view-dashboard">
+        <div class="filterbar" id="global-filterbar"></div>
+        <div class="kpi-row" id="kpi-row"></div>
+        <div class="panel"><span class="case-tab">AI INSIGHTS · AUTO-GENERATED</span>
+          <div class="panel-body" id="ai-insights-panel"></div>
+        </div>
+        <div class="grid-2">
+          <div class="panel"><span class="case-tab">TREND / MONTHLY</span>
+            <div class="panel-body"><canvas id="chart-trend"></canvas></div>
+          </div>
+          <div class="panel"><span class="case-tab">CATEGORY SPLIT</span>
+            <div class="panel-body"><canvas id="chart-category"></canvas></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel"><span class="case-tab">DISTRICT-WISE</span>
+            <div class="panel-body"><canvas id="chart-district"></canvas></div>
+          </div>
+          <div class="panel"><span class="case-tab">TIME OF DAY</span>
+            <div class="panel-body"><canvas id="chart-timeofday"></canvas></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel"><span class="case-tab">WEAPON ANALYSIS</span>
+            <div class="panel-body"><canvas id="chart-weapon"></canvas></div>
+          </div>
+          <div class="panel"><span class="case-tab">GENDER ANALYSIS · VICTIMS</span>
+            <div class="panel-body"><canvas id="chart-gender"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAP -->
+      <div class="view" id="view-map">
+        <div class="filterbar" id="map-filterbar"></div>
+        <div class="filterbar" style="margin-top:-8px;">
+          <div class="fitem"><label>Police Station</label><select id="mf-station" onchange="refreshMapView()"><option value="all">All</option></select></div>
+          <div class="fitem"><label>Time From (hr)</label><input type="number" id="mf-hourfrom" min="0" max="23" style="width:70px;" onchange="refreshMapView()"/></div>
+          <div class="fitem"><label>Time To (hr)</label><input type="number" id="mf-hourto" min="0" max="23" style="width:70px;" onchange="refreshMapView()"/></div>
+        </div>
+        <div class="map-controls">
+          <button class="btn-sm" onclick="cycleMapMode()" id="map-mode-btn">Show Heatmap</button>
+          <span style="font-size:11px;color:var(--mute-400);align-self:center;">Live OpenStreetMap tiles · Hotspots mode shows density, hover for count, click for area detail</span>
+        </div>
+        <div style="position:relative;">
+          <div id="map-container"></div>
+          <div id="map-legend" style="display:none;position:absolute;bottom:16px;right:16px;background:var(--ink-900);border:1px solid var(--ink-600);border-radius:2px;padding:10px 12px;font-size:11px;z-index:1000;">
+            <div style="color:var(--mute-400);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;font-size:10px;">Crime Density</div>
+            <div style="display:flex;align-items:center;gap:6px;margin:2px 0;"><span style="width:12px;height:12px;background:#4CAF50;border-radius:2px;display:inline-block;"></span>Low</div>
+            <div style="display:flex;align-items:center;gap:6px;margin:2px 0;"><span style="width:12px;height:12px;background:#E4C567;border-radius:2px;display:inline-block;"></span>Moderate</div>
+            <div style="display:flex;align-items:center;gap:6px;margin:2px 0;"><span style="width:12px;height:12px;background:#E08A3F;border-radius:2px;display:inline-block;"></span>High</div>
+            <div style="display:flex;align-items:center;gap:6px;margin:2px 0;"><span style="width:12px;height:12px;background:#C1443C;border-radius:2px;display:inline-block;"></span>Very High</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECORDS / CRIMINAL SEARCH -->
+      <div class="view" id="view-records">
+        <div class="panel"><span class="case-tab">CRIMINAL SEARCH — FIELDS SOURCED FROM DATASET</span>
+          <div class="panel-body">
+            <div class="filterbar" style="margin-bottom:0;">
+              <div class="fitem"><label>Crime No. / FIR Number</label><input type="text" id="cs-crimeno" placeholder="e.g. 202600014" oninput="runCriminalSearch(1)"/></div>
+              <div class="fitem"><label>Crime Type</label><select id="cs-crimetype" onchange="runCriminalSearch(1)"><option value="all">All</option></select></div>
+              <div class="fitem"><label>Case Status</label><select id="cs-status" onchange="runCriminalSearch(1)"><option value="all">All</option></select></div>
+              <div class="fitem"><label>District</label><select id="cs-district" onchange="runCriminalSearch(1)"><option value="all">All</option></select></div>
+              <div class="fitem"><label>Police Station</label><select id="cs-station" onchange="runCriminalSearch(1)"><option value="all">All</option></select></div>
+            </div>
+            <div class="filterbar" style="margin-top:10px;">
+              <div class="fitem"><label>From</label><input type="date" id="cs-from" min="2026-01-01" max="2026-07-24" onchange="runCriminalSearch(1)"/></div>
+              <div class="fitem"><label>To</label><input type="date" id="cs-to" min="2026-01-01" max="2026-07-24" onchange="runCriminalSearch(1)"/></div>
+              <div class="fitem"><label>Victim Name</label><input type="text" id="cs-victim" placeholder="partial match" oninput="runCriminalSearch(1)"/></div>
+              <div class="fitem"><label>Offender / Accused Name</label><input type="text" id="cs-offender" placeholder="partial match" oninput="runCriminalSearch(1)"/></div>
+              <div class="fitem"><label>Weapon Used</label><select id="cs-weapon" onchange="runCriminalSearch(1)"><option value="all">All</option></select></div>
+              <div class="fitem"><label>Gender (victim)</label><select id="cs-gender" onchange="runCriminalSearch(1)"><option value="all">All</option></select></div>
+              <div class="fitem"><label>Age min</label><input type="number" id="cs-agemin" min="0" max="120" style="width:70px;" oninput="runCriminalSearch(1)"/></div>
+              <div class="fitem"><label>Age max</label><input type="number" id="cs-agemax" min="0" max="120" style="width:70px;" oninput="runCriminalSearch(1)"/></div>
+              <button class="btn-ghost" onclick="resetCriminalSearch()">Reset</button>
+            </div>
+            <p style="font-size:10.5px;color:var(--mute-500);margin:10px 0 0;">Dropdowns are populated from the values actually present in the dataset, not a fixed list — a filter with zero matches is only offered if it exists in the data. All filters combine with AND logic.</p>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-body" style="overflow-x:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span id="cs-count" style="font-size:11.5px;color:var(--mute-400);"></span>
+              <div id="cs-pagination" style="display:flex;gap:6px;align-items:center;"></div>
+            </div>
+            <table>
+              <thead><tr><th>Crime No</th><th>Type</th><th>District</th><th>Station</th><th>Date</th><th>Victim</th><th>Offender</th><th>Weapon</th><th>Status</th><th></th></tr></thead>
+              <tbody id="records-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- NETWORK -->
+      <div class="view" id="view-network">
+        <div class="panel"><span class="case-tab">ILLUSTRATIVE LINK-ANALYSIS EXAMPLE</span>
+          <div class="panel-body">
+            <p style="font-size:12.5px;color:var(--mute-400);margin:0 0 12px;">Click a node to trace connections. This example shows two accused connected through a shared vehicle and phone across three FIRs and two police stations — a pattern normally invisible when cases are reviewed one at a time.</p>
+            <svg id="network-svg" viewBox="0 0 900 380"></svg>
+            <div id="net-info" style="margin-top:12px;font-size:12px;color:var(--paper-300);"></div>
+          </div>
+        </div>
+        <div class="panel"><span class="case-tab">REPEAT OFFENDER INDEX · LIVE DATASET</span>
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>Accused</th><th>Linked Cases</th><th>Districts Involved</th><th>Crime Types</th></tr></thead>
+              <tbody id="repeat-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHATBOT -->
+      <div class="view" id="view-chatbot">
+        <div class="chat-wrap">
+          <div class="chat-log" id="chat-log"></div>
+          <div class="chips" id="chat-chips"></div>
+          <div class="chat-input">
+            <input type="text" id="chat-input-box" placeholder="Ask about crime counts, hotspots, or a case status..." onkeydown="if(event.key==='Enter')sendChat()" />
+            <button class="btn-sm" onclick="sendChat()">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PREDICTIONS -->
+      <div class="view" id="view-predictions">
+        <div class="filterbar">
+          <div class="fitem"><label>District</label><select id="pred-district"></select></div>
+          <div class="fitem"><label>Crime Type</label><select id="pred-crimetype"><option value="all">Any</option></select></div>
+          <div class="fitem"><label>Time of Day</label>
+            <select id="pred-time"><option value="all">Any</option><option>Morning</option><option>Afternoon</option><option>Evening</option><option>Night</option></select>
+          </div>
+          <button class="btn-sm" onclick="runPrediction()">Run Prediction</button>
+        </div>
+        <div id="pred-output"></div>
+        <div class="grid-2">
+          <div class="panel"><span class="case-tab">HOTSPOT RANKING</span>
+            <div class="panel-body" id="hotspot-ranking"></div>
+          </div>
+          <div class="panel"><span class="case-tab">CHARGESHEET SLA WATCH</span>
+            <div class="panel-body">
+              <p style="font-size:11.5px;color:var(--mute-400);margin:0 0 10px;">Cases "Under Investigation" flagged when open more than 45 days (reference date: 24 Jul 2026).</p>
+              <table><thead><tr><th>Crime No</th><th>District</th><th>Type</th><th>Days Open</th></tr></thead><tbody id="sla-tbody"></tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="disclaimer">Prototype for Datathon 2026 (KSP × Zoho Catalyst × Hack2skill) — all case records, names and phone numbers are synthetically generated for demonstration and do not represent real individuals or investigations.</div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div id="modal-content"></div>
+</div>
+
+<script>
+/* ===================== SYNTHETIC DATA GENERATION ===================== */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rnd = mulberry32(1337);
+function choice(arr){return arr[Math.floor(rnd()*arr.length)];}
+function pad(n,len){return String(n).padStart(len,'0');}
+
+const DISTRICTS = [
+  {name:"Bengaluru Urban", code:"4430", lat:12.9716, lng:77.5946, stations:[{name:"Cubbon Park PS",id:"0006"},{name:"Whitefield PS",id:"0011"},{name:"Yeshwanthpur PS",id:"0022"}]},
+  {name:"Mysuru", code:"4471", lat:12.2958, lng:76.6394, stations:[{name:"Devaraja PS",id:"0003"},{name:"Vijayanagar PS",id:"0009"}]},
+  {name:"Dakshina Kannada", code:"4412", lat:12.9141, lng:74.8560, stations:[{name:"Mangaluru North PS",id:"0002"},{name:"Ullal PS",id:"0007"}]},
+  {name:"Belagavi", code:"4403", lat:15.8497, lng:74.4977, stations:[{name:"Belagavi Camp PS",id:"0004"},{name:"Tilakwadi PS",id:"0010"}]},
+  {name:"Kalaburagi", code:"4419", lat:17.3297, lng:76.8343, stations:[{name:"Kalaburagi Town PS",id:"0005"}]},
+  {name:"Ballari", code:"4402", lat:15.1394, lng:76.9214, stations:[{name:"Ballari City PS",id:"0008"}]},
+  {name:"Dharwad", code:"4413", lat:15.3647, lng:75.1240, stations:[{name:"Hubballi Old City PS",id:"0012"},{name:"Vidyagiri PS",id:"0015"}]},
+  {name:"Shivamogga", code:"4479", lat:13.9299, lng:75.5681, stations:[{name:"Shivamogga Town PS",id:"0013"}]},
+  {name:"Tumakuru", code:"4480", lat:13.3379, lng:77.1173, stations:[{name:"Tumakuru City PS",id:"0014"}]},
+  {name:"Davanagere", code:"4409", lat:14.4644, lng:75.9218, stations:[{name:"Davanagere PS",id:"0016"}]}
+];
+const DISTRICT_WEIGHTS = [3,2,1.5,1.3,1,1,1.3,1,1,1]; // Bengaluru weighted heavier
+
+const CRIME_TYPES = [
+  {name:"Theft", head:"Crimes Against Property", section:"BNS 303", heinous:false, weapons:["None","Not Applicable"]},
+  {name:"Chain Snatching", head:"Crimes Against Property", section:"BNS 304", heinous:false, weapons:["None"]},
+  {name:"Burglary", head:"Crimes Against Property", section:"BNS 331", heinous:false, weapons:["None","Blunt Object"]},
+  {name:"Vehicle Theft", head:"Crimes Against Property", section:"BNS 303", heinous:false, weapons:["Not Applicable"]},
+  {name:"Robbery", head:"Crimes Against Property", section:"BNS 309", heinous:true, weapons:["Knife","Blunt Object","None"]},
+  {name:"Assault", head:"Crimes Against Body", section:"BNS 118", heinous:false, weapons:["Blunt Object","None","Knife"]},
+  {name:"Murder", head:"Crimes Against Body", section:"BNS 103", heinous:true, weapons:["Knife","Firearm","Blunt Object"]},
+  {name:"Rioting", head:"Crimes Against Public Order", section:"BNS 191", heinous:true, weapons:["Blunt Object","None"]},
+  {name:"Cyber Fraud", head:"Cyber Crime", section:"IT Act 66D", heinous:false, weapons:["Not Applicable"]},
+  {name:"NDPS Offence", head:"Narcotics", section:"NDPS Act 20", heinous:true, weapons:["Not Applicable"]},
+  {name:"Missing Person", head:"Missing / UD", section:"BNSS 174", heinous:false, weapons:["Not Applicable"]}
+];
+const STATUSES_W = [["Under Investigation",0.35],["Charge Sheeted",0.30],["Closed",0.25],["Undetected",0.10]];
+function weightedChoice(pairs){let r=rnd()*pairs.reduce((s,p)=>s+p[1],0);for(const [v,w] of pairs){if(r<w)return v;r-=w;}return pairs[0][0];}
+const FIRST_NAMES=["Manjunath","Suresh","Ramesh","Lakshmi","Anitha","Karthik","Naveen","Deepa","Praveen","Shivakumar","Chandrashekar","Gowramma","Rajesh","Vinay","Kavya","Sowmya","Nagaraj","Basavaraj","Yallappa","Fathima","Imran","Josephine","Meena","Girish"];
+const LAST_NAMES=["Gowda","Naik","Shetty","Rao","Kumar","Reddy","Patil","Hegde","Bhat","Kulkarni","Desai","Poojary"];
+const IO_NAMES=["Sub-Inspector R. Nagesh","Inspector S. Chandrakala","Sub-Inspector M. Iqbal","Inspector B. Veeresh","Sub-Inspector T. Ashwini"];
+function randomName(){return choice(FIRST_NAMES)+" "+choice(LAST_NAMES);}
+
+let caseCounter = 1;
+function generateCase(id){
+  let di = weightedIndex(DISTRICT_WEIGHTS);
+  const d = DISTRICTS[di];
+  const st = choice(d.stations);
+  const ct = choice(CRIME_TYPES);
+  const day = Math.floor(rnd()*204)+1; // Jan 1 - Jul 24 2026 ~ 204 days
+  const date = new Date(2026,0,1); date.setDate(date.getDate()+day);
+  const hour = Math.floor(rnd()*24);
+  let timeOfDay = hour<6?"Night":hour<12?"Morning":hour<17?"Afternoon":hour<21?"Evening":"Night";
+  const status = weightedChoice(STATUSES_W);
+  const weapon = choice(ct.weapons);
+  const jitterLat = d.lat + (rnd()-0.5)*0.18;
+  const jitterLng = d.lng + (rnd()-0.5)*0.18;
+  const serial = pad(id,5);
+  const crimeNo = "1"+d.code+st.id+"2026"+serial;
+  const victim = {name:randomName(), age:18+Math.floor(rnd()*55), gender:choice(["M","F"])};
+  const accused = {name:randomName(), age:19+Math.floor(rnd()*40), gender:choice(["M","F"]), id:"A/"+(1000+Math.floor(rnd()*900))};
+  return {
+    id: "C"+id, crimeNo, caseNo: "2026"+serial,
+    district: d.name, station: st.name, lat:jitterLat, lng:jitterLng,
+    crimeType: ct.name, crimeHead: ct.head, section: ct.section, heinous: ct.heinous,
+    date: date.toISOString().slice(0,10), hour, timeOfDay,
+    status, weapon, victim, accused,
+    io: choice(IO_NAMES), court: d.name+" District & Sessions Court",
+    briefFacts: `${ct.name} reported at ${st.name}. Complaint registered and investigation ${status==='Closed'?'concluded':status==='Charge Sheeted'?'forwarded to court':'ongoing'}.`
+  };
+}
+function weightedIndex(weights){let r=rnd()*weights.reduce((a,b)=>a+b,0);for(let i=0;i<weights.length;i++){if(r<weights[i])return i;r-=weights[i];}return 0;}
+
+const CASES = [];
+for(let i=1;i<=90;i++){ CASES.push(generateCase(i)); }
+
+/* ===================== STATE ===================== */
+const state = { role:"SHO", username:"", lang:"en",
+  filters:{crimeType:"all", district:"all", status:"all", dateFrom:"", dateTo:""} };
+let chartInstances = {};
+let map, markerLayer, heatLayer, heatOn=false;
+
+/* ===================== I18N ===================== */
+const I18N = {
+  login_title:{en:"KSP Crime Intelligence", kn:"ಕೆಎಸ್‌ಪಿ ಅಪರಾಧ ಗುಪ್ತಚರ"},
+  username:{en:"Your Name", kn:"ನಿಮ್ಮ ಹೆಸರು"},
+  password:{en:"Password", kn:"ಪಾಸ್‌ವರ್ಡ್"},
+  role:{en:"Role", kn:"ಪಾತ್ರ"},
+  login_btn:{en:"Sign in to Console", kn:"ಕನ್ಸೋಲ್‌ಗೆ ಸೈನ್ ಇನ್ ಮಾಡಿ"},
+  logout:{en:"Log out", kn:"ಲಾಗ್ ಔಟ್"},
+  nav_dashboard:{en:"Dashboard", kn:"ಡ್ಯಾಶ್‌ಬೋರ್ಡ್"},
+  nav_map:{en:"Crime Map", kn:"ಅಪರಾಧ ನಕ್ಷೆ"},
+  nav_records:{en:"Case Records", kn:"ಪ್ರಕರಣ ದಾಖಲೆಗಳು"},
+  nav_network:{en:"Criminal Network", kn:"ಅಪರಾಧಿ ಜಾಲ"},
+  nav_chatbot:{en:"AI Assistant", kn:"ಎಐ ಸಹಾಯಕ"},
+  nav_predictions:{en:"Predictions", kn:"ಮುನ್ಸೂಚನೆ"}
+};
+function setLang(l){
+  state.lang=l;
+  document.getElementById('lang-en').classList.toggle('active-lang', l==='en');
+  document.getElementById('lang-kn').classList.toggle('active-lang', l==='kn');
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key=el.getAttribute('data-i18n');
+    if(I18N[key]) el.textContent = I18N[key][l];
+  });
+  document.getElementById('page-title').textContent = I18N['nav_'+currentView] ? I18N['nav_'+currentView][l] : document.getElementById('page-title').textContent;
+}
+
+/* ===================== LOGIN / LOGOUT ===================== */
+const NAME_PATTERN = /^[A-Za-z][A-Za-z\s.'-]{1,49}$/;
+function validateLoginForm(){
+  const nameInput = document.getElementById('login-username');
+  const passInput = document.getElementById('login-password');
+  const nameErr = document.getElementById('login-name-error');
+  const passErr = document.getElementById('login-password-error');
+  const btn = document.getElementById('login-submit-btn');
+  const nameVal = nameInput.value.trim();
+  const passVal = passInput.value;
+  const nameValid = NAME_PATTERN.test(nameVal);
+  const passValid = passVal.length >= 6;
+  nameErr.style.display = (nameVal.length>0 && !nameValid) ? 'block' : 'none';
+  passErr.style.display = (passVal.length>0 && !passValid) ? 'block' : 'none';
+  btn.disabled = !(nameValid && passValid);
+  return nameValid && passValid;
+}
+function handleLogin(e){
+  if(e && e.preventDefault) e.preventDefault();
+  if(!validateLoginForm()) return false;
+  state.username = document.getElementById('login-username').value.trim();
+  state.role = document.getElementById('login-role').value;
+  document.getElementById('login-view').style.display='none';
+  document.getElementById('app').style.display='grid';
+  document.getElementById('who-label').textContent = state.username+" · "+state.role;
+  applyRoleRestrictions();
+  initFilterBars();
+  renderDashboard();
+  populatePredictionSelectors();
+  initChatbot();
+  return false;
+}
+function handleLogout(){
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-view').style.display='flex';
+  document.getElementById('login-username').value='';
+  document.getElementById('login-password').value='';
+  document.getElementById('login-name-error').style.display='none';
+  document.getElementById('login-password-error').style.display='none';
+  document.getElementById('login-submit-btn').disabled = true;
+}
+function applyRoleRestrictions(){
+  const restricted = state.role==='Constable';
+  document.querySelectorAll('.nav-item[data-restrict="1"]').forEach(el=>{
+    el.classList.toggle('locked', restricted);
+    el.onclick = restricted ? null : function(){showView(el.dataset.view);};
+  });
+  document.getElementById('role-note').innerHTML = restricted
+    ? '<span style="color:var(--alert-400);font-size:10.5px;">Network & Predictions modules restricted for Constable role.</span>'
+    : '';
+}
+
+/* ===================== NAVIGATION ===================== */
+let currentView = 'dashboard';
+let csInitialized = false;
+function showView(name){
+  if(state.role==='Constable' && (name==='network'||name==='predictions')) return;
+  currentView = name;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.view===name));
+  const titles = {dashboard:'Dashboard', map:'Crime Map', records:'Case Records', network:'Criminal Network', chatbot:'AI Assistant', predictions:'Predictions & Hotspots'};
+  document.getElementById('page-title').textContent = I18N['nav_'+name] ? I18N['nav_'+name][state.lang] : titles[name];
+  if(name==='map'){ setTimeout(initMap, 50); }
+  if(name==='records'){ csInitialized ? runCriminalSearch(csPage) : (csInitialized=true, initCriminalSearch()); }
+  if(name==='network'){ renderNetwork(); }
+  if(name==='predictions'){ renderHotspotRanking(); renderSLA(); }
+}
+
+/* ===================== FILTERS ===================== */
+function filterBarHTML(idPrefix){
+  return `
+    <div class="fitem"><label>Crime Type</label><select id="${idPrefix}-crimetype" onchange="applyFilters()"><option value="all">All Types</option>${CRIME_TYPES.map(c=>`<option value="${c.name}">${c.name}</option>`).join('')}</select></div>
+    <div class="fitem"><label>District</label><select id="${idPrefix}-district" onchange="applyFilters()"><option value="all">All Districts</option>${DISTRICTS.map(d=>`<option value="${d.name}">${d.name}</option>`).join('')}</select></div>
+    <div class="fitem"><label>Status</label><select id="${idPrefix}-status" onchange="applyFilters()"><option value="all">All Statuses</option>${STATUSES_W.map(s=>`<option value="${s[0]}">${s[0]}</option>`).join('')}</select></div>
+    <div class="fitem"><label>From</label><input type="date" id="${idPrefix}-from" onchange="applyFilters()" min="2026-01-01" max="2026-07-24"/></div>
+    <div class="fitem"><label>To</label><input type="date" id="${idPrefix}-to" onchange="applyFilters()" min="2026-01-01" max="2026-07-24"/></div>
+    <button class="btn-ghost" onclick="resetFilters('${idPrefix}')">Reset</button>
+  `;
+}
+function initFilterBars(){
+  document.getElementById('global-filterbar').innerHTML = filterBarHTML('gf');
+  document.getElementById('map-filterbar').innerHTML = filterBarHTML('mf');
+}
+function readFilterFrom(prefix){
+  const g=(id)=>{const el=document.getElementById(prefix+id); return el?el.value:'all';};
+  return {crimeType:g('-crimetype')||'all', district:g('-district')||'all', status:g('-status')||'all', dateFrom:g('-from')||'', dateTo:g('-to')||''};
+}
+function applyFilters(){
+  // sync all three filter bars from whichever the user touched last -> use dashboard bar as canonical if present, else map/records
+  let prefix = document.activeElement && document.activeElement.id.startsWith('mf') ? 'mf' : 'gf';
+  state.filters = readFilterFrom(prefix);
+  ['gf','mf'].forEach(p=>{
+    ['crimetype','district','status'].forEach(k=>{
+      const el = document.getElementById(p+'-'+k);
+      if(el){ const val = k==='crimetype'?state.filters.crimeType:k==='district'?state.filters.district:state.filters.status; el.value = val; }
+    });
+  });
+  renderDashboard(true);
+  if(currentView==='map') refreshMapMarkers();
+}
+function resetFilters(prefix){
+  state.filters = {crimeType:'all', district:'all', status:'all', dateFrom:'', dateTo:''};
+  ['gf','mf'].forEach(p=>{
+    const c=document.getElementById(p+'-crimetype'); if(c)c.value='all';
+    const d=document.getElementById(p+'-district'); if(d)d.value='all';
+    const s=document.getElementById(p+'-status'); if(s)s.value='all';
+    const f=document.getElementById(p+'-from'); if(f)f.value='';
+    const t=document.getElementById(p+'-to'); if(t)t.value='';
+  });
+  renderDashboard(true);
+  if(currentView==='map') refreshMapMarkers();
+}
+function getFilteredCases(){
+  return CASES.filter(c=>{
+    if(state.filters.crimeType!=='all' && c.crimeType!==state.filters.crimeType) return false;
+    if(state.filters.district!=='all' && c.district!==state.filters.district) return false;
+    if(state.filters.status!=='all' && c.status!==state.filters.status) return false;
+    if(state.filters.dateFrom && c.date < state.filters.dateFrom) return false;
+    if(state.filters.dateTo && c.date > state.filters.dateTo) return false;
+    return true;
+  });
+}
+
+/* ===================== DASHBOARD ===================== */
+function renderDashboard(){
+  const data = getFilteredCases();
+  const total = data.length;
+  const solved = data.filter(c=>c.status==='Closed'||c.status==='Charge Sheeted').length;
+  const pending = data.filter(c=>c.status==='Under Investigation').length;
+  const byDistrict = {}; data.forEach(c=>byDistrict[c.district]=(byDistrict[c.district]||0)+1);
+  const highRisk = Object.entries(byDistrict).filter(([k,v])=>v >= (total/DISTRICTS.length)*1.3).length;
+
+  const icoCase = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#E4C567" stroke-width="1.6"><path d="M3 7h6l2 2h10v10H3z"/></svg>';
+  const icoCheck = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#3FA79A" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>';
+  const icoClock = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#E4C567" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>';
+  const icoWarn = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#E0685F" stroke-width="1.6"><path d="M12 3l10 18H2z"/><path d="M12 10v4"/><circle cx="12" cy="17" r="0.6" fill="#E0685F"/></svg>';
+  document.getElementById('kpi-row').innerHTML = `
+    <div class="kpi-card">${icoCase}<div class="num">${total}</div><div class="lbl" data-i18n="kpi_total">Total Crimes</div></div>
+    <div class="kpi-card teal">${icoCheck}<div class="num">${solved}</div><div class="lbl">Solved / Charge Sheeted</div></div>
+    <div class="kpi-card">${icoClock}<div class="num">${pending}</div><div class="lbl">Pending Investigation</div></div>
+    <div class="kpi-card alert">${icoWarn}<div class="num">${highRisk}</div><div class="lbl">High-Risk Districts</div></div>
+  `;
+  renderAIInsightsPanel();
+
+  // Trend by month
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul'];
+  const trendCounts = months.map((m,i)=>data.filter(c=>new Date(c.date).getMonth()===i).length);
+  drawChart('chart-trend','line',months,[{label:'Cases',data:trendCounts,borderColor:'#E4C567',backgroundColor:'rgba(228,197,103,0.15)',tension:0.3,fill:true}]);
+
+  // Category
+  const catCounts={}; data.forEach(c=>catCounts[c.crimeType]=(catCounts[c.crimeType]||0)+1);
+  drawChart('chart-category','doughnut',Object.keys(catCounts),[{data:Object.values(catCounts),backgroundColor:palette(Object.keys(catCounts).length)}]);
+
+  // District
+  const distLabels = DISTRICTS.map(d=>d.name);
+  const distCounts = distLabels.map(n=>byDistrict[n]||0);
+  const maxD = Math.max(...distCounts,1);
+  drawChart('chart-district','bar',distLabels,[{data:distCounts,backgroundColor:distCounts.map(v=>v===maxD && v>0?'#C1443C':'#C9A227')}], {indexAxis:'y'});
+
+  // Time of day
+  const todLabels=['Morning','Afternoon','Evening','Night'];
+  const todCounts = todLabels.map(t=>data.filter(c=>c.timeOfDay===t).length);
+  drawChart('chart-timeofday','radar',todLabels,[{label:'Cases',data:todCounts,borderColor:'#3FA79A',backgroundColor:'rgba(63,167,154,0.2)'}]);
+
+  // Weapon
+  const wpCounts={}; data.forEach(c=>wpCounts[c.weapon]=(wpCounts[c.weapon]||0)+1);
+  drawChart('chart-weapon','bar',Object.keys(wpCounts),[{data:Object.values(wpCounts),backgroundColor:'#A6821C'}]);
+
+  // Gender
+  const gCounts={M:0,F:0}; data.forEach(c=>gCounts[c.victim.gender]++);
+  drawChart('chart-gender','doughnut',['Male','Female'],[{data:[gCounts.M,gCounts.F],backgroundColor:['#232D42','#C9A227']}]);
+}
+function palette(n){
+  const base=['#C9A227','#3FA79A','#C1443C','#7A8290','#E4C567','#232D42','#9A332C','#5C6474','#A6821C','#1A2233','#E0685F'];
+  const out=[]; for(let i=0;i<n;i++) out.push(base[i%base.length]); return out;
+}
+function drawChart(id,type,labels,datasets,extraOpts){
+  const canvas = document.getElementById(id);
+  if(typeof Chart === 'undefined'){
+    canvas.parentElement.innerHTML = '<p style="color:var(--alert-400);font-size:12px;padding:20px;text-align:center;">Chart.js failed to load from CDN — check your internet connection and reload.</p>';
+    return;
+  }
+  const ctx = canvas.getContext('2d');
+  if(chartInstances[id]) chartInstances[id].destroy();
+  chartInstances[id] = new Chart(ctx,{
+    type, data:{labels,datasets},
+    options: Object.assign({
+      responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{labels:{color:'#D9D3C4', font:{size:10}}}},
+      scales: type==='doughnut'||type==='radar' ? (type==='radar'?{r:{angleLines:{color:'#232D42'},grid:{color:'#232D42'},pointLabels:{color:'#D9D3C4',font:{size:10}},ticks:{display:false}}}:{}) : {
+        x:{ticks:{color:'#7A8290',font:{size:9}}, grid:{color:'#1A2233'}},
+        y:{ticks:{color:'#7A8290',font:{size:9}}, grid:{color:'#1A2233'}}
+      }
+    }, extraOpts||{})
+  });
+}
+
+function renderAIInsightsPanel(){
+  const ins = computeGlobalInsights();
+  const trendWord = ins.weeklyChangePct>=0 ? 'increased' : 'decreased';
+  const byType = countBy(CASES,c=>c.crimeType);
+  const topType = topOf(byType);
+  const nightTypes = countBy(CASES.filter(c=>c.timeOfDay==='Night'),c=>c.crimeType);
+  const topNightType = Object.keys(nightTypes).length ? topOf(nightTypes) : null;
+  const items = [
+    `Crime volume has ${trendWord} by ${Math.abs(ins.weeklyChangePct)}% this week (${ins.last7} cases) versus the previous week (${ins.prev7} cases).`,
+    topNightType ? `${topNightType[0]} peaks during night hours — ${topNightType[1]} of ${CASES.filter(c=>c.timeOfDay==='Night').length} night-time cases.` : null,
+    `${ins.highestRisk.split(',')[0]} is currently the highest-risk district in the dataset.`,
+    `${topType[0]} remains the single most frequent crime type overall (${topType[1]} cases).`,
+    `Recommended action: ${ins.precautions}`
+  ].filter(Boolean);
+  document.getElementById('ai-insights-panel').innerHTML = `<ul class="bullet-list">${items.map(i=>`<li>${i}</li>`).join('')}</ul>`;
+}
+
+/* ===================== MAP ===================== */
+let mapMode = 'markers'; // 'markers' | 'heat' | 'hotspots'
+let hotspotLayer;
+function initMap(){
+  if(map){ map.invalidateSize(); populateMapStationFilter(); refreshMapView(); return; }
+  map = L.map('map-container').setView([15.3173,75.7139],7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'&copy; OpenStreetMap contributors', maxZoom:18
+  }).addTo(map);
+  markerLayer = L.layerGroup().addTo(map);
+  hotspotLayer = L.layerGroup();
+  populateMapStationFilter();
+  refreshMapView();
+}
+function populateMapStationFilter(){
+  const sel = document.getElementById('mf-station');
+  if(sel.options.length>1) return; // already populated
+  const stations = uniq(CASES.map(c=>c.station));
+  sel.innerHTML = '<option value="all">All</option>' + stations.map(s=>`<option value="${s}">${s}</option>`).join('');
+}
+function getMapFilteredCases(){
+  let data = getFilteredCases(); // shared crimeType/district/status/date filters
+  const station = document.getElementById('mf-station').value;
+  const hf = parseInt(document.getElementById('mf-hourfrom').value,10);
+  const ht = parseInt(document.getElementById('mf-hourto').value,10);
+  if(station && station!=='all') data = data.filter(c=>c.station===station);
+  if(!isNaN(hf)) data = data.filter(c=>c.hour>=hf);
+  if(!isNaN(ht)) data = data.filter(c=>c.hour<=ht);
+  return data;
+}
+const statusColor = {"Under Investigation":"#E4C567","Charge Sheeted":"#3FA79A","Closed":"#7A8290","Undetected":"#E0685F"};
+const DENSITY_COLORS = {low:'#4CAF50', moderate:'#E4C567', high:'#E08A3F', veryhigh:'#C1443C'};
+function densityBucket(count, max){
+  const ratio = max>0 ? count/max : 0;
+  if(ratio<=0.25) return 'low'; if(ratio<=0.5) return 'moderate'; if(ratio<=0.75) return 'high'; return 'veryhigh';
+}
+function refreshMapMarkers(){ refreshMapView(); } // backward-compat alias
+function refreshMapView(){
+  if(!map) return;
+  markerLayer.clearLayers();
+  if(hotspotLayer) hotspotLayer.clearLayers();
+  const data = getMapFilteredCases();
+  document.getElementById('map-legend').style.display = mapMode==='hotspots' ? 'block' : 'none';
+
+  if(mapMode==='markers'){
+    if(heatLayer) map.removeLayer(heatLayer);
+    if(hotspotLayer.getLayers().length) map.removeLayer(hotspotLayer);
+    markerLayer.addTo(map);
+    data.forEach(c=>{
+      const m = L.circleMarker([c.lat,c.lng],{radius:6,color:statusColor[c.status],fillColor:statusColor[c.status],fillOpacity:0.75,weight:1});
+      m.bindPopup(`<div style="font-family:Inter,sans-serif;font-size:12px;min-width:180px;">
+        <b>${c.crimeType}</b><br/>Crime No: <span style="font-family:monospace;font-size:10px;">${c.crimeNo}</span><br/>
+        ${c.station}, ${c.district}<br/>Date: ${c.date}<br/>Status: ${c.status}<br/>
+        <button onclick="openCaseModal('${c.id}')" style="margin-top:6px;background:#C9A227;border:none;padding:4px 8px;border-radius:2px;cursor:pointer;">View Case</button>
+      </div>`);
+      markerLayer.addLayer(m);
+    });
+  } else if(mapMode==='heat'){
+    markerLayer.remove();
+    map.removeLayer(hotspotLayer);
+    buildHeat(data);
+  } else if(mapMode==='hotspots'){
+    markerLayer.remove();
+    if(heatLayer) map.removeLayer(heatLayer);
+    buildHotspots(data);
+    hotspotLayer.addTo(map);
+  }
+}
+function cycleMapMode(){
+  mapMode = mapMode==='markers' ? 'heat' : mapMode==='heat' ? 'hotspots' : 'markers';
+  const labels = {markers:'Show Heatmap', heat:'Show Hotspots', hotspots:'Show Markers'};
+  document.getElementById('map-mode-btn').textContent = labels[mapMode];
+  refreshMapView();
+}
+function buildHeat(data){
+  if(heatLayer) map.removeLayer(heatLayer);
+  const points = data.map(c=>[c.lat,c.lng,0.6]);
+  heatLayer = L.heatLayer(points,{radius:28, blur:20, maxZoom:10,
+    gradient:{0.2:'#4CAF50', 0.4:'#E4C567', 0.6:'#E08A3F', 1.0:'#C1443C'}}).addTo(map);
+}
+function buildHotspots(data){
+  // group into station-level bubbles: total, top crime type, peak hour, last reported, safety score
+  const byStation = {};
+  data.forEach(c=>{
+    if(!byStation[c.station]) byStation[c.station] = {station:c.station, district:c.district, cases:[], latSum:0, lngSum:0};
+    const g = byStation[c.station];
+    g.cases.push(c); g.latSum += c.lat; g.lngSum += c.lng;
+  });
+  const groups = Object.values(byStation);
+  const max = Math.max(...groups.map(g=>g.cases.length), 1);
+  groups.forEach(g=>{
+    const n = g.cases.length;
+    const lat = g.latSum/n, lng = g.lngSum/n;
+    const byType = countBy(g.cases,c=>c.crimeType); const topType = topOf(byType);
+    const byHour = countBy(g.cases,c=>c.hour); const peakHour = topOf(byHour);
+    const last = [...g.cases].sort((a,b)=>b.date.localeCompare(a.date))[0];
+    const safetyScore = Math.max(5, 100 - Math.round(n/max*90));
+    const bucket = densityBucket(n, max);
+    const color = DENSITY_COLORS[bucket];
+    const radius = 10 + (n/max)*18;
+    const m = L.circleMarker([lat,lng],{radius, color, fillColor:color, fillOpacity:0.55, weight:1.5});
+    m.bindTooltip(`${n} crime(s)`, {direction:'top'});
+    m.bindPopup(`<div style="font-family:Inter,sans-serif;font-size:12px;min-width:200px;">
+      <b>${g.station}</b><br/><span style="color:#5C6474;">${g.district}</span><br/><br/>
+      Total Crimes: <b>${n}</b><br/>
+      Top Crime Type: <b>${topType[0]}</b><br/>
+      Peak Crime Time: <b>${pad(parseInt(peakHour[0],10),2)}:00</b><br/>
+      Last Reported: <b>${last.date}</b><br/>
+      Safety Score: <b>${safetyScore}/100</b>
+    </div>`);
+    hotspotLayer.addLayer(m);
+  });
+}
+
+/* ===================== CRIMINAL SEARCH ===================== */
+/* Dropdown options are derived from the live CASES array (i.e. from the dataset), never hardcoded.
+   In a real deployment, DISTINCT crime_type, status, station, district, weapon, gender FROM cases
+   would populate these instead. Every non-empty field below is combined with AND logic. */
+const CS_PAGE_SIZE = 10;
+let csPage = 1;
+function uniq(arr){ return [...new Set(arr)].filter(Boolean).sort(); }
+function initCriminalSearch(){
+  const distinctCrimeTypes = uniq(CASES.map(c=>c.crimeType));
+  const distinctStatuses = uniq(CASES.map(c=>c.status));
+  const distinctDistricts = uniq(CASES.map(c=>c.district));
+  const distinctStations = uniq(CASES.map(c=>c.station));
+  const distinctWeapons = uniq(CASES.map(c=>c.weapon));
+  const distinctGenders = uniq(CASES.map(c=>c.victim.gender));
+  const fill = (id, values) => { document.getElementById(id).innerHTML = '<option value="all">All</option>' + values.map(v=>`<option value="${v}">${v}</option>`).join(''); };
+  fill('cs-crimetype', distinctCrimeTypes);
+  fill('cs-status', distinctStatuses);
+  fill('cs-district', distinctDistricts);
+  fill('cs-station', distinctStations);
+  fill('cs-weapon', distinctWeapons);
+  fill('cs-gender', distinctGenders);
+  runCriminalSearch(1);
+}
+function getCriminalSearchResults(){
+  const v = id => document.getElementById(id).value;
+  const crimeNo = v('cs-crimeno').trim().toLowerCase();
+  const crimeType = v('cs-crimetype');
+  const status = v('cs-status');
+  const district = v('cs-district');
+  const station = v('cs-station');
+  const from = v('cs-from');
+  const to = v('cs-to');
+  const victim = v('cs-victim').trim().toLowerCase();
+  const offender = v('cs-offender').trim().toLowerCase();
+  const weapon = v('cs-weapon');
+  const gender = v('cs-gender');
+  const ageMin = parseInt(v('cs-agemin'),10);
+  const ageMax = parseInt(v('cs-agemax'),10);
+  return CASES.filter(c=>{
+    if(crimeNo && !c.crimeNo.toLowerCase().includes(crimeNo)) return false;
+    if(crimeType!=='all' && c.crimeType!==crimeType) return false;
+    if(status!=='all' && c.status!==status) return false;
+    if(district!=='all' && c.district!==district) return false;
+    if(station!=='all' && c.station!==station) return false;
+    if(from && c.date < from) return false;
+    if(to && c.date > to) return false;
+    if(victim && !c.victim.name.toLowerCase().includes(victim)) return false;
+    if(offender && !c.accused.name.toLowerCase().includes(offender)) return false;
+    if(weapon!=='all' && c.weapon!==weapon) return false;
+    if(gender!=='all' && c.victim.gender!==gender) return false;
+    if(!isNaN(ageMin) && c.victim.age < ageMin) return false;
+    if(!isNaN(ageMax) && c.victim.age > ageMax) return false;
+    return true;
+  });
+}
+function runCriminalSearch(page){
+  csPage = page || csPage || 1;
+  const results = getCriminalSearchResults();
+  const totalPages = Math.max(1, Math.ceil(results.length / CS_PAGE_SIZE));
+  if(csPage > totalPages) csPage = totalPages;
+  const start = (csPage-1)*CS_PAGE_SIZE;
+  const pageRows = results.slice(start, start+CS_PAGE_SIZE);
+  document.getElementById('cs-count').textContent = `${results.length} case(s) matched`;
+  document.getElementById('records-tbody').innerHTML = pageRows.length ? pageRows.map(c=>`
+    <tr>
+      <td class="mono">${c.crimeNo}</td>
+      <td>${c.crimeType}</td>
+      <td>${c.district}</td>
+      <td>${c.station}</td>
+      <td class="mono">${c.date}</td>
+      <td>${c.victim.name} (${c.victim.age}${c.victim.gender})</td>
+      <td>${c.accused.name}</td>
+      <td>${c.weapon}</td>
+      <td><span class="status-pill st-${c.status.split(' ')[0]}">${c.status}</span></td>
+      <td><button class="link-btn" onclick="openCaseModal('${c.id}')">View</button></td>
+    </tr>
+  `).join('') : '<tr><td colspan="10" style="text-align:center;color:var(--mute-500);padding:20px;">No cases match the selected filters.</td></tr>';
+  document.getElementById('cs-pagination').innerHTML = `
+    <button class="btn-ghost" ${csPage<=1?'disabled':''} onclick="runCriminalSearch(${csPage-1})">Prev</button>
+    <span style="font-size:11.5px;color:var(--mute-400);">Page ${csPage} / ${totalPages}</span>
+    <button class="btn-ghost" ${csPage>=totalPages?'disabled':''} onclick="runCriminalSearch(${csPage+1})">Next</button>
+  `;
+}
+function resetCriminalSearch(){
+  ['cs-crimeno','cs-victim','cs-offender','cs-agemin','cs-agemax','cs-from','cs-to'].forEach(id=>document.getElementById(id).value='');
+  ['cs-crimetype','cs-status','cs-district','cs-station','cs-weapon','cs-gender'].forEach(id=>document.getElementById(id).value='all');
+  runCriminalSearch(1);
+}
+function openCaseModal(id){
+  const c = CASES.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('modal-content').innerHTML = `
+    <div class="modal-head"><h3 style="color:var(--brass-400);font-size:16px;">${c.crimeType} — ${c.crimeNo}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="detail-row"><span class="k">Case No</span><span class="v">${c.caseNo}</span></div>
+      <div class="detail-row"><span class="k">District / Station</span><span class="v">${c.district} / ${c.station}</span></div>
+      <div class="detail-row"><span class="k">Date Registered</span><span class="v">${c.date}</span></div>
+      <div class="detail-row"><span class="k">Time of Day</span><span class="v">${c.timeOfDay} (${pad(c.hour,2)}:00)</span></div>
+      <div class="detail-row"><span class="k">Status</span><span class="v"><span class="status-pill st-${c.status.split(' ')[0]}">${c.status}</span></span></div>
+      <div class="detail-row"><span class="k">Gravity</span><span class="v">${c.heinous?'Heinous':'Non-Heinous'}</span></div>
+      <div class="detail-row"><span class="k">Act / Section</span><span class="v">${c.section}</span></div>
+      <div class="detail-row"><span class="k">Weapon</span><span class="v">${c.weapon}</span></div>
+      <div class="detail-row"><span class="k">Victim</span><span class="v">${c.victim.name} (${c.victim.age}, ${c.victim.gender})</span></div>
+      <div class="detail-row"><span class="k">Accused</span><span class="v">${c.accused.name} (${c.accused.id})</span></div>
+      <div class="detail-row"><span class="k">Investigating Officer</span><span class="v">${c.io}</span></div>
+      <div class="detail-row"><span class="k">Court</span><span class="v">${c.court}</span></div>
+      <p style="margin-top:14px;font-size:12.5px;color:var(--paper-300);line-height:1.6;">${c.briefFacts}</p>
+    </div>
+  `;
+  document.getElementById('modal-overlay').style.display='flex';
+}
+function closeModal(){ document.getElementById('modal-overlay').style.display='none'; }
+
+/* ===================== NETWORK ===================== */
+const NET_NODES = [
+  {id:'a1', type:'accused', label:'Manjunath Gowda (A/1042)', x:40,  y:90,  w:210, info:'Accused in 2 linked FIRs across Bengaluru Urban.'},
+  {id:'c1', type:'case', label:'FIR ...0014 · Chain Snatching', x:340, y:40,  w:230, info:'Whitefield PS · Under Investigation'},
+  {id:'v1', type:'asset', label:'Vehicle KA-05-MZ-4471', x:660, y:90,  w:210, info:'Motorcycle registered to a third party, used in 3 incidents.'},
+  {id:'c2', type:'case', label:'FIR ...0027 · Robbery', x:340, y:220, w:230, info:'Yeshwanthpur PS · Charge Sheeted'},
+  {id:'a2', type:'accused', label:'Suresh Naik (A/1078)', x:660, y:270, w:210, info:'Second accused, shares vehicle with A/1042.'},
+  {id:'p1', type:'asset', label:'Phone +91-98•••••12', x:20,  y:270, w:210, info:'Number appears in 2 FIR call-detail annexures.'},
+  {id:'c3', type:'case', label:'FIR ...0041 · Theft', x:20,  y:360, w:230, info:'Cubbon Park PS · Under Investigation'}
+];
+const NET_EDGES = [['a1','c1'],['c1','v1'],['v1','c2'],['c2','a2'],['v1','a2'],['c2','p1'],['p1','c3']];
+function renderNetwork(){
+  const svg = document.getElementById('network-svg');
+  svg.setAttribute('viewBox','0 0 920 470');
+  let html = `<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#5C6474"></path></marker></defs>`;
+  NET_EDGES.forEach(([f,t])=>{
+    const a=NET_NODES.find(n=>n.id===f), b=NET_NODES.find(n=>n.id===t);
+    const ax=a.x+a.w/2, ay=a.y+18, bx=b.x+b.w/2, by=b.y+18;
+    html += `<line class="net-edge" id="edge-${f}-${t}" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" marker-end="url(#arrow)"/>`;
+  });
+  NET_NODES.forEach(n=>{
+    html += `<g class="net-node ${n.type}" id="node-${n.id}" onclick="highlightNode('${n.id}')" transform="translate(${n.x},${n.y})">
+      <rect width="${n.w}" height="36" rx="4"></rect>
+      <text x="10" y="23">${n.label}</text>
+    </g>`;
+  });
+  html += `<g transform="translate(20,15)" style="font-family:JetBrains Mono, monospace; font-size:10px;">
+      <rect x="0" y="-12" width="14" height="14" rx="2" fill="none" stroke="#E0685F"/><text x="20" y="0" fill="#7A8290">Accused</text>
+      <rect x="110" y="-12" width="14" height="14" rx="2" fill="none" stroke="#E4C567"/><text x="130" y="0" fill="#7A8290">Case (FIR)</text>
+      <rect x="240" y="-12" width="14" height="14" rx="2" fill="none" stroke="#3FA79A"/><text x="260" y="0" fill="#7A8290">Shared asset (vehicle/phone)</text>
+    </g>`;
+  svg.innerHTML = html;
+  document.getElementById('net-info').textContent = 'Click any node above for details. Lines show which records are linked and in which direction the trail was traced.';
+  renderRepeatOffenders();
+}
+function highlightNode(id){
+  document.querySelectorAll('.net-node').forEach(n=>n.classList.remove('hl'));
+  document.querySelectorAll('.net-edge').forEach(e=>e.classList.remove('hl'));
+  document.getElementById('node-'+id).classList.add('hl');
+  NET_EDGES.forEach(([f,t])=>{
+    if(f===id||t===id){
+      document.getElementById('node-'+f).classList.add('hl');
+      document.getElementById('node-'+t).classList.add('hl');
+      document.getElementById(`edge-${f}-${t}`).classList.add('hl');
+    }
+  });
+  const n = NET_NODES.find(x=>x.id===id);
+  document.getElementById('net-info').innerHTML = `<b style="color:var(--brass-400);">${n.label}</b> — ${n.info}`;
+}
+function renderRepeatOffenders(){
+  const byAccused = {};
+  CASES.forEach(c=>{
+    const key = c.accused.name+'|'+c.accused.id;
+    if(!byAccused[key]) byAccused[key]={name:c.accused.name,id:c.accused.id,cases:[],districts:new Set(),types:new Set()};
+    byAccused[key].cases.push(c.crimeNo); byAccused[key].districts.add(c.district); byAccused[key].types.add(c.crimeType);
+  });
+  const repeat = Object.values(byAccused).filter(a=>a.cases.length>1).sort((a,b)=>b.cases.length-a.cases.length).slice(0,10);
+  document.getElementById('repeat-tbody').innerHTML = repeat.length ? repeat.map(a=>`
+    <tr><td>${a.name} (${a.id})</td><td>${a.cases.length}</td><td>${[...a.districts].join(', ')}</td><td>${[...a.types].join(', ')}</td></tr>
+  `).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--mute-500);">No repeat linkages found in current dataset.</td></tr>';
+}
+
+/* ===================== CRIME & SAFETY ASSISTANT ===================== */
+/* Every function below computes its answer live from the CASES array — nothing is
+   pre-written per question. This is a deterministic analytics engine (not a live LLM):
+   it plays the role your real FastAPI + PostgreSQL + RAG + LLM pipeline should play once
+   built — retrieve real aggregates, then narrate them. Wire search.py-style SQL in place
+   of the array scans below when the real backend exists (see chatbot_rag.py). */
+
+const REFUSAL = "I am a Crime Intelligence Assistant and can only answer questions related to crime data, public safety, and crime analytics.";
+const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const REF_DATE = new Date('2026-07-24');
+
+// ---- topic gate: built from the dataset's own vocabulary + domain terms, not a fixed blacklist ----
+function onTopicVocabulary(){
+  const domain = ['crime','crimes','case','cases','fir','safety','safe','danger','dangerous','risk','police','station','district',
+    'hotspot','hotspots','victim','offender','accused','arrest','chargesheet','weapon','statistic','stats','trend','analytic',
+    'analytics','patrol','curfew','theft','robbery','murder','assault','burglary','cyber','ndps','narcotic','rioting','missing',
+    'night','morning','evening','afternoon','hour','hours','peak','weekday','month','monthly','location','locations','map','latitude',
+    'longitude','coordinates','investigation','solved','pending','closed','undetected','gender','age','vehicle','phone','network',
+    'hi','hello','hey','thanks','thank','help','recent','latest','area','areas','zone','walk','walking','travel','alone'];
+  const fromData = [...DISTRICTS.map(d=>d.name.toLowerCase()), ...CRIME_TYPES.map(c=>c.name.toLowerCase()),
+    ...new Set(CASES.map(c=>c.station.toLowerCase()))];
+  return domain.concat(fromData.flatMap(s=>s.split(' ')));
+}
+const ON_TOPIC_WORDS = onTopicVocabulary();
+function isOnTopic(q){
+  const ql = q.toLowerCase();
+  return ON_TOPIC_WORDS.some(term => term.length>=3 && ql.includes(term));
+}
+
+function miniBars(pairs){ // pairs: [[label,count],...]
+  const max = Math.max(...pairs.map(p=>p[1]),1);
+  return pairs.map(([label,count])=>`
+    <div style="display:flex;align-items:center;gap:6px;margin:3px 0;font-size:11px;">
+      <span style="width:110px;flex-shrink:0;">${label}</span>
+      <div style="flex:1;background:var(--ink-700);height:7px;border-radius:4px;overflow:hidden;"><div style="height:100%;width:${count/max*100}%;background:var(--brass-500);"></div></div>
+      <span class="mono" style="width:26px;text-align:right;">${count}</span>
+    </div>`).join('');
+}
+function countBy(data, keyFn){
+  const m={}; data.forEach(c=>{const k=keyFn(c); m[k]=(m[k]||0)+1;}); return m;
+}
+function fmt12(h){ const period = h<12?'AM':'PM'; let hh = h%24%12; if(hh===0) hh=12; return `${hh}:00 ${period}`; }
+function computePeakSafeWindows(hourCounts){
+  const arr = []; for(let h=0;h<24;h++) arr.push(hourCounts[h]||0);
+  let peakH=0, maxC=-1; for(let h=0;h<24;h++){ if(arr[h]>maxC){maxC=arr[h]; peakH=h;} }
+  let safeH=0, minC=Infinity; for(let h=0;h<24;h++){ if(arr[h]<minC){minC=arr[h]; safeH=h;} }
+  const peakEnd = (peakH+3)%24, safeEnd = (safeH+4)%24;
+  return {peakRange: `${fmt12(peakH)} \u2013 ${fmt12(peakEnd)}`, safeRange: `${fmt12(safeH)} \u2013 ${fmt12(safeEnd)}`, peakHour:peakH, safeHour:safeH};
+}
+function topOf(map){ return Object.entries(map).sort((a,b)=>b[1]-a[1])[0]; }
+function bottomOf(map){ return Object.entries(map).sort((a,b)=>a[1]-b[1])[0]; }
+
+let _insightsCache = null;
+function computeGlobalInsights(){
+  if(_insightsCache) return _insightsCache; // cached — computed once per session, not per question
+  const byType = countBy(CASES,c=>c.crimeType);
+  const byDistrict = countBy(CASES,c=>c.district);
+  const byHour = countBy(CASES,c=>c.hour);
+  const byTOD = countBy(CASES,c=>c.timeOfDay);
+  const topType = topOf(byType), topDistrict = topOf(byDistrict), safestDistrict = bottomOf(byDistrict);
+  const topHour = topOf(byHour), safestTOD = bottomOf(byTOD);
+  const nightShare = Math.round((CASES.filter(c=>c.timeOfDay==='Night').length/CASES.length)*100);
+  const last7 = CASES.filter(c=>{const d=(REF_DATE-new Date(c.date))/86400000; return d>=0 && d<7;}).length;
+  const prev7 = CASES.filter(c=>{const d=(REF_DATE-new Date(c.date))/86400000; return d>=7 && d<14;}).length;
+  const weeklyChangePct = prev7>0 ? Math.round((last7-prev7)/prev7*100) : (last7>0?100:0);
+  _insightsCache = {
+    weeklyChangePct, last7, prev7,
+    summary: `Across ${CASES.length} recorded cases, <b>${topType[0]}</b> is the most frequent crime type (${topType[1]} cases) and <b>${topDistrict[0]}</b> has the highest case volume (${topDistrict[1]} cases).`,
+    observations: `${nightShare}% of all cases occur at night; case hour ${topHour[0]}:00 sees the single highest concentration of incidents.`,
+    highestRisk: `${topDistrict[0]}, driven mainly by ${topType[0]} — especially around ${topHour[0]}:00 hours.`,
+    safestPeriod: `${safestTOD[0]} hours record the fewest incidents dataset-wide.`,
+    precautions: `Avoid isolated routes during peak hours, stay alert in flagged hotspot areas, keep emergency numbers handy, and report suspicious activity to the nearest station promptly.`
+  };
+  return _insightsCache;
+}
+function structuredAnswer(analysis, statsHTML, conclusion, safety, opts){
+  opts = opts || {};
+  let html = `<b>Analysis</b><br>${analysis}`;
+  if(statsHTML) html += `<div style="margin-top:8px;"><b>Supporting Statistics</b><br>${statsHTML}</div>`;
+  html += `<div style="margin-top:8px;"><b>Conclusion</b><br>${conclusion}</div>`;
+  html += `<div style="margin-top:8px;color:var(--teal);"><b>Safety Recommendation</b><br>${safety}</div>`;
+  if(!opts.skipInsights){
+    const ins = computeGlobalInsights();
+    html += `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--ink-600);font-size:11px;color:var(--paper-300);">
+      <b style="color:var(--brass-400);">AI-Generated Insights</b><br>
+      <b>Summary:</b> ${ins.summary}<br><b>Key Observations:</b> ${ins.observations}<br>
+      <b>Highest Risk Factor:</b> ${ins.highestRisk}<br><b>Safest Period:</b> ${ins.safestPeriod}<br>
+      <b>Recommended Precautions:</b> ${ins.precautions}</div>`;
+  }
+  return html;
+}
+const NO_DATA = "The dataset does not contain sufficient information to answer that — try asking about crime types, districts, stations, time patterns, or a specific FIR number.";
+
+function answerQuery(raw){
+  const q = raw.trim();
+  const ql = q.toLowerCase();
+
+  if(!isOnTopic(ql)) return {text: REFUSAL};
+  if(/^(hi|hello|hey|thanks|thank you)\b/.test(ql)) return {text:"Hello — ask me about crime types, districts, hotspots, time patterns, or a specific FIR number and I'll analyze the case dataset for you."};
+
+  // ---- direct FIR / crime number lookup ----
+  const numMatch = ql.match(/\d{5,}/);
+  if(numMatch){
+    const found = CASES.find(c=>c.crimeNo.includes(numMatch[0]));
+    if(!found) return {text: structuredAnswer(NO_DATA,'',NO_DATA,'N/A',{skipInsights:true})};
+    return {text: structuredAnswer(
+      `Crime No ${found.crimeNo} is a <b>${found.crimeType}</b> case registered at ${found.station}, ${found.district} on ${found.date}.`,
+      `Status: ${found.status}<br>Weapon: ${found.weapon}<br>Section: ${found.section}`,
+      `This case is currently <b>${found.status}</b>.`,
+      found.status==='Under Investigation' ? 'If you have information relevant to this case, contact the investigating station directly.' : 'No further action required from the public at this time.'),
+      ref:`Ref: ${found.crimeNo}`};
+  }
+
+  // ---- latest / recent crime ----
+  if(ql.includes('latest crime') || ql.includes('recent crime') || (ql.includes('latest')&&ql.includes('crime'))){
+    const latest = [...CASES].sort((a,b)=> (b.date+pad(b.hour,2)).localeCompare(a.date+pad(a.hour,2)))[0];
+    const mapsLink = `https://www.google.com/maps?q=${latest.lat.toFixed(5)},${latest.lng.toFixed(5)}`;
+    const advisory = latest.timeOfDay==='Night' ? 'This occurred at night — avoid isolated routes in this area after dark and travel in groups where possible.' : 'Stay alert in this area, keep valuables secured, and report anything suspicious to the local station.';
+    const analysis = `The most recent case on record is a <b>${latest.crimeType}</b> (Crime No ${latest.crimeNo}), registered ${latest.date} at ${pad(latest.hour,2)}:00 in ${latest.station}, ${latest.district}.`;
+    const stats = `Type: ${latest.crimeType}<br>Date: ${latest.date} · Time: ${pad(latest.hour,2)}:00 (${latest.timeOfDay})<br>Status: ${latest.status}<br>District: ${latest.district} · Station: ${latest.station}<br>Coordinates: ${latest.lat.toFixed(5)}, ${latest.lng.toFixed(5)}<br><a href="${mapsLink}" target="_blank" style="color:var(--teal);">Open in Google Maps →</a>`;
+    return {text: structuredAnswer(analysis, stats, `Case status is currently <b>${latest.status}</b>.`, advisory), ref:`Ref: ${latest.crimeNo}`};
+  }
+
+  // ---- resolve a place mention (station takes priority over district, since it's more specific) ----
+  function resolvePlace(qtext){
+    const stations = uniq(CASES.map(c=>c.station));
+    const station = stations.find(s=>{ const key=s.replace(/\s*ps$/i,'').trim().toLowerCase(); return key.length>=3 && qtext.includes(key); });
+    if(station) return {name:station, type:'station', cases:CASES.filter(c=>c.station===station)};
+    const dist = DISTRICTS.find(d=> qtext.includes(d.name.toLowerCase()) || qtext.includes(d.name.toLowerCase().split(' ')[0]));
+    if(dist) return {name:dist.name, type:'district', cases:CASES.filter(c=>c.district===dist.name)};
+    return null;
+  }
+  function parseTimeWindow(qtext){
+    const afterMatch = qtext.match(/after\s+(\d{1,2})\s?(am|pm)/);
+    if(afterMatch){
+      let h=parseInt(afterMatch[1],10); if(afterMatch[2]==='pm'&&h!==12)h+=12; if(afterMatch[2]==='am'&&h===12)h=0;
+      return {filter:c=> h>=18 ? (c.hour>=h || c.hour<6) : c.hour>=h, label:`after ${fmt12(h)}`};
+    }
+    if(qtext.includes('weekend')) return {filter:c=>{const d=new Date(c.date).getDay(); return d===0||d===6;}, label:'on weekends'};
+    if(qtext.includes('night')) return {filter:c=>c.timeOfDay==='Night', label:'at night'};
+    const atM = qtext.match(/(\d{1,2})\s?(am|pm)/);
+    if(atM){
+      let h=parseInt(atM[1],10); if(atM[2]==='pm'&&h!==12)h+=12; if(atM[2]==='am'&&h===12)h=0;
+      return {filter:c=>Math.abs(c.hour-h)<=1, label:`around ${fmt12(h)}`};
+    }
+    return {filter:()=>true, label:'overall'};
+  }
+  function crimeProfileBody(cases, placeName, windowLabel, showPercent, placeType){
+    const byType = countBy(cases,c=>c.crimeType);
+    const sortedTypes = Object.entries(byType).sort((a,b)=>b[1]-a[1]);
+    const total = cases.length;
+    const distributionLines = sortedTypes.slice(0,5).map(([t,c])=> showPercent ? `• ${t} — ${Math.round(c/total*100)}%` : `• ${t}: ${c} case(s)`).join('<br>');
+    const byHour = {}; cases.forEach(c=>byHour[c.hour]=(byHour[c.hour]||0)+1);
+    const windows = computePeakSafeWindows(byHour);
+    const peerCounts = placeType==='district' ? Object.values(countBy(CASES,c=>c.district)) : Object.values(countBy(CASES,c=>c.station));
+    const maxPeer = Math.max(...peerCounts,1);
+    const safetyScore = Math.max(5, 100 - Math.round(total/maxPeer*90));
+    const riskLevel = safetyScore>=70?'Low':safetyScore>=40?'Medium':'High';
+    const topType = sortedTypes[0], secondType = sortedTypes[1];
+    const recommendation = `${topType[0]} is the most frequently reported crime${windowLabel!=='overall'?' '+windowLabel:''} in ${placeName}` +
+      (secondType? `, followed by ${secondType[0]}.` : '.') +
+      ` Peak activity is ${windows.peakRange}; consider travelling during ${windows.safeRange} when incidents are significantly lower.`;
+    return {html:`<b>Crime Summary for ${placeName}${windowLabel!=='overall'?' ('+windowLabel+')':''}</b><br><br>` +
+      `<b>Safety Score:</b> ${safetyScore}/100<br><b>Risk Level:</b> ${riskLevel}<br><br>` +
+      `<b>${showPercent?'Most Common Crimes':'Crime Analysis'}:</b><br>${distributionLines}<br><br>` +
+      `<b>Peak Crime Time:</b> ${windows.peakRange}<br><b>Safest Time:</b> ${windows.safeRange}<br><br>` +
+      `<b>Recommendation:</b><br>${recommendation}`,
+      topType, sortedTypes, total};
+  }
+
+  const PROFILE_TRIGGERS = ['safe','common','usually happen','type of crime','careful','going to',"i'm going",'i am going','visiting','travel','happen','occur'];
+  const place = resolvePlace(ql);
+  const focusType = CRIME_TYPES.find(c=>ql.includes(c.name.toLowerCase()));
+
+  // ---- place-based crime/safety profile (covers "I am going to X", "is X safe at Y", "what crime is common in X", "is robbery common in X") ----
+  if(place && PROFILE_TRIGGERS.some(t=>ql.includes(t))){
+    if(place.cases.length < 3){
+      return {text:`There is not enough historical data for ${place.name} to provide a reliable crime analysis — only ${place.cases.length} case(s) on record for this location.`};
+    }
+    const tw = parseTimeWindow(ql);
+    const windowCases = place.cases.filter(tw.filter);
+    const useWindow = tw.label!=='overall';
+    if(useWindow && windowCases.length===0){
+      const body = crimeProfileBody(place.cases, place.name, 'overall', true, place.type);
+      return {text:`There is not enough historical data for crimes ${tw.label} in ${place.name} — no matching cases on record. Showing the overall profile instead:<br><br>${body.html}`};
+    }
+    const basis = useWindow ? windowCases : place.cases;
+    const body = crimeProfileBody(basis, place.name, tw.label, !useWindow, place.type);
+    let prefix = '';
+    if(focusType){
+      const rank = body.sortedTypes.findIndex(([t])=>t===focusType.name);
+      const count = rank>=0 ? body.sortedTypes[rank][1] : 0;
+      prefix = rank===0
+        ? `Yes — ${focusType.name} is the single most common crime type in ${place.name}${tw.label!=='overall'?' '+tw.label:''} (${count} of ${body.total} case(s)).<br><br>`
+        : count>0
+        ? `${focusType.name} does occur in ${place.name} (${count} case(s), ranked #${rank+1} by frequency) but is not the dominant crime type there.<br><br>`
+        : `No ${focusType.name} cases are on record for ${place.name}${tw.label!=='overall'?' '+tw.label:''}.<br><br>`;
+    }
+    return {text: prefix + body.html};
+  }
+
+  // ---- weekend crime pattern (no specific place required) ----
+  if(ql.includes('weekend') && ql.includes('crime')){
+    const weekendCases = CASES.filter(c=>{const d=new Date(c.date).getDay(); return d===0||d===6;});
+    const weekdayCases = CASES.filter(c=>{const d=new Date(c.date).getDay(); return d!==0&&d!==6;});
+    const byType = countBy(weekendCases,c=>c.crimeType);
+    const top = weekendCases.length ? topOf(byType) : null;
+    return {text: structuredAnswer(
+      `${weekendCases.length} of ${CASES.length} cases (vs ${weekdayCases.length} on weekdays) occurred on weekends.${top?` The most frequent weekend crime is <b>${top[0]}</b> (${top[1]} cases).`:''}`,
+      top?miniBars(Object.entries(byType).sort((a,b)=>b[1]-a[1])):'',
+      `Weekend case volume is ${weekendCases.length>weekdayCases.length*2/5?'notably elevated relative to':'broadly comparable to'} weekday levels (normalizing for 2 weekend days vs 5 weekdays).`,
+      `Maintain visible weekend patrols, particularly focused on ${top?top[0].toLowerCase():'high-frequency crime types'}.`)};
+  }
+
+  // ---- which crime is increasing this month ----
+  if((ql.includes('increasing')||ql.includes('increase')) && ql.includes('month')){
+    const thisM = REF_DATE.getMonth(), lastM = thisM-1;
+    const thisCounts = countBy(CASES.filter(c=>new Date(c.date).getMonth()===thisM),c=>c.crimeType);
+    const lastCounts = countBy(CASES.filter(c=>new Date(c.date).getMonth()===lastM),c=>c.crimeType);
+    const allTypes = [...new Set([...Object.keys(thisCounts),...Object.keys(lastCounts)])];
+    let best=null,bestDelta=-Infinity;
+    allTypes.forEach(t=>{ const delta=(thisCounts[t]||0)-(lastCounts[t]||0); if(delta>bestDelta){bestDelta=delta;best=t;} });
+    return {text: structuredAnswer(
+      bestDelta>0 ? `<b>${best}</b> shows the largest month-to-date increase: ${thisCounts[best]||0} case(s) this month vs ${lastCounts[best]||0} last month.` : `No crime type shows a month-over-month increase — case counts are flat or declining across all types (note: current month is only month-to-date through Jul 24).`,
+      allTypes.map(t=>`${t}: ${lastCounts[t]||0} → ${thisCounts[t]||0}`).join('<br>'),
+      bestDelta>0 ? `${best} is the emerging trend to watch this month.` : `No emerging crime-type trend detected this month.`,
+      bestDelta>0 ? `Increase monitoring and patrols specifically targeting ${best.toLowerCase()}.` : `Maintain current patrol allocation.`)};
+  }
+
+  // ---- generic "what should I be careful about" (no place) ----
+  if(ql.includes('careful') && !place){
+    const byType = countBy(CASES,c=>c.crimeType); const top = topOf(byType);
+    const ins = computeGlobalInsights();
+    return {text: structuredAnswer(
+      `Dataset-wide, <b>${top[0]}</b> is the crime type you're most likely to encounter (${top[1]} of ${CASES.length} cases).`,
+      miniBars(Object.entries(byType).sort((a,b)=>b[1]-a[1]).slice(0,6)),
+      ins.highestRisk,
+      ins.precautions)};
+  }
+
+  // ---- crimes after/around a time with no specific place ----
+  if(!place && /after\s+\d{1,2}\s?(am|pm)/.test(ql) && ql.includes('crime')){
+    const tw = parseTimeWindow(ql);
+    const subset = CASES.filter(tw.filter);
+    const byType = countBy(subset,c=>c.crimeType);
+    const top = subset.length ? topOf(byType) : null;
+    return {text: structuredAnswer(
+      subset.length ? `${subset.length} case(s) were recorded ${tw.label}, most commonly <b>${top[0]}</b> (${top[1]} cases).` : `There is not enough historical data for crimes ${tw.label} to identify a pattern.`,
+      subset.length?miniBars(Object.entries(byType).sort((a,b)=>b[1]-a[1])):'',
+      subset.length ? `${top[0]} dominates this time window dataset-wide.` : NO_DATA,
+      `Exercise extra caution ${tw.label}; prefer well-lit, populated routes.`)};
+  }
+
+  // ---- explicit hour mention e.g. "10 pm", "6 am" ----
+  const hourMatch = ql.match(/(\d{1,2})\s?(am|pm)/);
+  if(hourMatch || ql.includes('peak crime hour') || ql.includes('peak hour') || (ql.includes('night') && (ql.includes('crime')||ql.includes('occur')))){
+    let targetHour = null;
+    let label;
+    const byHour = {}; for(let h=0;h<24;h++) byHour[h]=CASES.filter(c=>c.hour===h).length;
+    const sortedHours = Object.entries(byHour).sort((a,b)=>b[1]-a[1]);
+    const peak = sortedHours[0];
+    if(hourMatch){
+      let h=parseInt(hourMatch[1],10); const ap=hourMatch[2]; if(ap==='pm'&&h!==12)h+=12; if(ap==='am'&&h===12)h=0; targetHour=h;
+      label = `around ${pad(targetHour,2)}:00`;
+    } else if(ql.includes('night')){
+      label = 'during night hours';
+    } else {
+      targetHour = parseInt(peak[0],10);
+      label = `around ${pad(targetHour,2)}:00 (the peak hour dataset-wide)`;
+    }
+    let subset = targetHour!==null ? CASES.filter(c=>c.hour===targetHour) : CASES.filter(c=>c.timeOfDay==='Night');
+    const typeBreak = countBy(subset,c=>c.crimeType);
+    const topType = subset.length ? topOf(typeBreak) : null;
+    const analysis = subset.length
+      ? `Analyzing all ${CASES.length} cases grouped by hour: ${subset.length} case(s) were recorded ${label}, most commonly <b>${topType[0]}</b> (${topType[1]} of them).`
+      : `No cases in the dataset were recorded ${label}.`;
+    const stats = miniBars(sortedHours.slice(0,6).map(([h,c])=>[`${pad(h,2)}:00`, c]));
+    const conclusion = `Dataset-wide, the single highest-frequency hour is <b>${pad(peak[0],2)}:00</b> with ${peak[1]} cases.`;
+    const safety = `Exercise extra caution ${label}${topType?`, particularly regarding ${topType[0].toLowerCase()}`:''}; avoid unlit or isolated areas during these hours.`;
+    return {text: structuredAnswer(analysis, stats, conclusion, safety)};
+  }
+
+  // ---- weekday with highest crimes ----
+  if(ql.includes('weekday') || (ql.includes('day of the week'))){
+    const byDay = {}; CASES.forEach(c=>{const d=WEEKDAYS[new Date(c.date).getDay()]; byDay[d]=(byDay[d]||0)+1;});
+    const top = topOf(byDay);
+    const ordered = WEEKDAYS.map(d=>[d,byDay[d]||0]);
+    return {text: structuredAnswer(
+      `Grouping all ${CASES.length} cases by day of the week, <b>${top[0]}</b> has the highest recorded case count (${top[1]}).`,
+      miniBars(ordered), `${top[0]} is the highest-risk weekday in the current dataset.`,
+      `Plan patrols and public advisories with extra emphasis on ${top[0]}s.`)};
+  }
+
+  // ---- most common crime type ----
+  if(ql.includes('most common crime') || ql.includes('most frequent crime')){
+    const byType = countBy(CASES,c=>c.crimeType); const top = topOf(byType);
+    const pct = Math.round(top[1]/CASES.length*100);
+    return {text: structuredAnswer(
+      `<b>${top[0]}</b> is the most common crime type, accounting for ${top[1]} of ${CASES.length} cases (${pct}%).`,
+      miniBars(Object.entries(byType).sort((a,b)=>b[1]-a[1])),
+      `${top[0]} should be the primary focus of prevention resourcing.`,
+      `Increase visible patrolling and public awareness specifically around ${top[0].toLowerCase()} prevention.`)};
+  }
+
+  // ---- district with highest crime rate ----
+  if((ql.includes('highest crime') || ql.includes('highest crime rate') || ql.includes('most crime')) && ql.includes('district')){
+    const byDistrict = countBy(CASES,c=>c.district); const top = topOf(byDistrict);
+    return {text: structuredAnswer(
+      `<b>${top[0]}</b> has the highest case volume with ${top[1]} of ${CASES.length} total cases.`,
+      miniBars(Object.entries(byDistrict).sort((a,b)=>b[1]-a[1])),
+      `${top[0]} is the current primary hotspot district.`,
+      `Residents and visitors in ${top[0]} should take extra precautions, especially at night.`)};
+  }
+
+  // ---- safest district ----
+  if(ql.includes('safest district') || ql.includes('safest area') || ql.includes('lowest crime')){
+    const byDistrict = countBy(CASES,c=>c.district); const bottom = bottomOf(byDistrict);
+    return {text: structuredAnswer(
+      `<b>${bottom[0]}</b> has the lowest recorded case count (${bottom[1]} of ${CASES.length} total).`,
+      miniBars(Object.entries(byDistrict).sort((a,b)=>a[1]-b[1])),
+      `${bottom[0]} is the comparatively safest district in the current dataset.`,
+      `Standard public safety precautions still apply — "safest" is relative, not zero-risk.`)};
+  }
+
+  // ---- police station with most cases ----
+  if(ql.includes('station') && (ql.includes('most cases')||ql.includes('highest'))){
+    const byStation = countBy(CASES,c=>c.station); const top = topOf(byStation);
+    return {text: structuredAnswer(
+      `<b>${top[0]}</b> has recorded the most cases (${top[1]} of ${CASES.length}).`,
+      miniBars(Object.entries(byStation).sort((a,b)=>b[1]-a[1])),
+      `${top[0]} carries the heaviest current caseload.`,
+      `Consider additional resourcing or patrol frequency for ${top[0]}.`)};
+  }
+
+  // ---- top hotspots (location-based) ----
+  if(ql.includes('hotspot') || (ql.includes('top') && ql.includes('location'))){
+    const byStation = {}; CASES.forEach(c=>{const k=c.station+'|'+c.district; if(!byStation[k]) byStation[k]={count:0,lat:c.lat,lng:c.lng,district:c.district,station:c.station}; byStation[k].count++;});
+    const top5 = Object.values(byStation).sort((a,b)=>b.count-a.count).slice(0,5);
+    const stats = top5.map((s,i)=>`#${i+1} ${s.station}, ${s.district} — ${s.count} case(s) (${s.lat.toFixed(3)}, ${s.lng.toFixed(3)})`).join('<br>');
+    return {text: structuredAnswer(
+      `The top ${top5.length} crime hotspots by case volume are identified below. View them live on the Crime Map page for exact marker positions.`,
+      stats, `${top5[0].station} in ${top5[0].district} is the leading hotspot.`,
+      `Increase patrol frequency at these specific locations, particularly during peak hours.`)};
+  }
+
+  // ---- monthly trend ----
+  if(ql.includes('trend') || (ql.includes('month')&&!ql.includes('last month'))){
+    const months=['Jan','Feb','Mar','Apr','May','Jun','Jul'];
+    const counts = months.map((m,i)=>CASES.filter(c=>new Date(c.date).getMonth()===i).length);
+    const diff = counts[6]-counts[5];
+    return {text: structuredAnswer(
+      `Monthly case volume from January to July 2026 is shown below.`,
+      miniBars(months.map((m,i)=>[m,counts[i]])),
+      `Cases ${diff>=0?'increased':'decreased'} by ${Math.abs(diff)} between June and July.`,
+      `Monitor the trend direction monthly and adjust patrol allocation accordingly.`)};
+  }
+
+  // ---- crime type + status combo, e.g. "murder cases under investigation" ----
+  const ctMatch = CRIME_TYPES.find(c=>ql.includes(c.name.toLowerCase()));
+  const stMatch = ['under investigation','charge sheeted','closed','undetected'].find(s=>ql.includes(s));
+  if(ctMatch && stMatch){
+    const subset = CASES.filter(c=>c.crimeType===ctMatch.name && c.status.toLowerCase()===stMatch);
+    return {text: structuredAnswer(
+      `There are <b>${subset.length}</b> ${ctMatch.name} case(s) currently marked "${stMatch}".`,
+      subset.length?`Refs: ${subset.slice(0,5).map(c=>c.crimeNo).join(', ')}`:'', 
+      subset.length ? `${ctMatch.name} cases in this status represent ${Math.round(subset.length/CASES.filter(c=>c.crimeType===ctMatch.name).length*100)}% of all ${ctMatch.name} cases.` : NO_DATA,
+      `Follow up on open cases promptly to improve resolution rates.`)};
+  }
+
+  // ---- "last month" + crime type ----
+  const district = DISTRICTS.find(d=>ql.includes(d.name.toLowerCase().split(' ')[0]));
+  if(ql.includes('last month')){
+    const lastMonthIdx = REF_DATE.getMonth()-1;
+    let subset = CASES.filter(c=>new Date(c.date).getMonth()===lastMonthIdx);
+    if(ctMatch) subset = subset.filter(c=>c.crimeType===ctMatch.name);
+    if(district) subset = subset.filter(c=>c.district===district.name);
+    return {text: structuredAnswer(
+      `${subset.length} ${ctMatch?ctMatch.name+' ':''}case(s) were recorded last month${district?' in '+district.name:''}.`,
+      subset.slice(0,8).map(c=>`${c.crimeNo} — ${c.crimeType}, ${c.district}, ${c.date}`).join('<br>'),
+      subset.length ? `This reflects last month's recorded activity for the selected filters.` : NO_DATA,
+      `Review recent cases for any emerging pattern requiring a targeted response.`)};
+  }
+
+  // ---- crime type breakdown at night ----
+  if(ql.includes('night') && ql.includes('frequent')){
+    const nightCases = CASES.filter(c=>c.timeOfDay==='Night');
+    const byType = countBy(nightCases,c=>c.crimeType);
+    const top = topOf(byType);
+    return {text: structuredAnswer(
+      `Among ${nightCases.length} night-time cases, <b>${top[0]}</b> occurs most frequently (${top[1]} cases).`,
+      miniBars(Object.entries(byType).sort((a,b)=>b[1]-a[1])),
+      `${top[0]} is the dominant night-time crime type.`,
+      `Increase night patrols with specific attention to ${top[0].toLowerCase()} prevention.`)};
+  }
+
+  // ---- show crimes in a district / general district or type listing ----
+  if(district || ctMatch){
+    let subset = CASES;
+    if(district) subset = subset.filter(c=>c.district===district.name);
+    if(ctMatch) subset = subset.filter(c=>c.crimeType===ctMatch.name);
+    if(!subset.length) return {text: structuredAnswer(NO_DATA,'', NO_DATA, 'N/A', {skipInsights:true})};
+    const list = subset.slice(0,8).map(c=>`${c.crimeNo} — ${c.crimeType}, ${c.status}, ${c.date}`).join('<br>');
+    return {text: structuredAnswer(
+      `Found ${subset.length} case(s)${ctMatch?' of type '+ctMatch.name:''}${district?' in '+district.name:''}.`,
+      list, `Showing up to 8 of ${subset.length} matching case(s) — use Case Records for the full list with pagination.`,
+      `Stay informed on local case activity and report suspicious behavior promptly.`),
+      ref: subset.length?`Refs: ${subset.slice(0,3).map(c=>c.crimeNo).join(', ')}`:''};
+  }
+
+  return {text: NO_DATA};
+}
+
+const CHAT_SUGGESTIONS = ["What is the most common crime?","Which district has the highest crime rate?","What crimes usually occur at night?","What is the latest crime?","Top 5 crime hotspots","Tell me a joke"];
+function initChatbot(){
+  const log = document.getElementById('chat-log');
+  log.innerHTML = `<div class="msg bot">Namaskara! I'm the KSP Crime & Safety Assistant. I only answer questions about crime data, public safety, and analytics from this dataset — ask me about crime types, districts, hotspots, timing patterns, or a specific FIR number.</div>`;
+  document.getElementById('chat-chips').innerHTML = CHAT_SUGGESTIONS.map(s=>`<span class="chip" onclick="askChip('${s.replace(/'/g,"")}')">${s}</span>`).join('');
+}
+function askChip(text){ document.getElementById('chat-input-box').value = text; sendChat(); }
+function sendChat(){
+  const box = document.getElementById('chat-input-box');
+  const text = box.value.trim();
+  if(!text) return;
+  const log = document.getElementById('chat-log');
+  log.innerHTML += `<div class="msg user">${escapeHTML(text)}</div>`;
+  box.value='';
+  const answer = answerQuery(text);
+  log.innerHTML += `<div class="msg bot">${answer.text}${answer.ref?`<span class="ref">${answer.ref}</span>`:''}</div>`;
+  log.scrollTop = log.scrollHeight;
+}
+function escapeHTML(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+/* ===================== PREDICTIONS ===================== */
+function populatePredictionSelectors(){
+  document.getElementById('pred-district').innerHTML = DISTRICTS.map(d=>`<option>${d.name}</option>`).join('');
+  document.getElementById('pred-crimetype').innerHTML += CRIME_TYPES.map(c=>`<option>${c.name}</option>`).join('');
+}
+function runPrediction(){
+  const district = document.getElementById('pred-district').value;
+  const crimeType = document.getElementById('pred-crimetype').value;
+  const timeOfDay = document.getElementById('pred-time').value;
+  const districtCases = CASES.filter(c=>c.district===district);
+  let matchCases = districtCases;
+  if(crimeType!=='all') matchCases = matchCases.filter(c=>c.crimeType===crimeType);
+  if(timeOfDay!=='all') matchCases = matchCases.filter(c=>c.timeOfDay===timeOfDay);
+  const base = districtCases.length ? matchCases.length/districtCases.length : 0;
+  const nightShare = matchCases.length ? matchCases.filter(c=>c.timeOfDay==='Night').length/matchCases.length : 0;
+  const counts={}; CASES.forEach(c=>counts[c.district]=(counts[c.district]||0)+1);
+  const ranked = Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+  const rank = ranked.indexOf(district)+1;
+  const recent = matchCases.filter(c=>c.date>='2026-06-24').length;
+  const prior = matchCases.filter(c=>c.date>='2026-05-25' && c.date<'2026-06-24').length;
+  let prob = Math.round((base*0.6 + nightShare*0.2 + (rank<=3?0.2:0.05))*100);
+  prob = Math.max(6, Math.min(94, prob));
+  const risk = prob>=70?'Critical':prob>=50?'High':prob>=25?'Medium':'Low';
+  document.getElementById('pred-output').innerHTML = `
+    <div class="pred-result">
+      <div class="pred-gauge risk-${risk}">${prob}%</div>
+      <div>
+        <div style="font-size:13px;color:var(--mute-400);">Estimated likelihood — <b class="risk-${risk}" style="text-transform:uppercase;">${risk} risk</b></div>
+        <div style="font-size:11px;color:var(--mute-500);margin-top:4px;">Heuristic score derived from patterns in this demo dataset — illustrative only, not a production ML model.</div>
+      </div>
+    </div>
+    <ul class="bullet-list">
+      <li>${matchCases.length} similar case(s) recorded in ${district}${crimeType!=='all'?' ('+crimeType+')':''}${timeOfDay!=='all'?' during '+timeOfDay:''} within the dataset.</li>
+      <li>${Math.round(nightShare*100)}% of matching cases occurred during Night hours.</li>
+      <li>${district} ranks #${rank} of ${DISTRICTS.length} districts by total case volume.</li>
+      <li>${recent} case(s) in the last 30 days vs ${prior} in the previous 30 days.</li>
+    </ul>
+  `;
+}
+function renderHotspotRanking(){
+  const counts={}; CASES.forEach(c=>counts[c.district]=(counts[c.district]||0)+1);
+  const ranked = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const max = ranked[0][1];
+  document.getElementById('hotspot-ranking').innerHTML = ranked.map(([name,count],i)=>`
+    <div class="rank-row">
+      <span class="rank-badge">#${i+1}</span>
+      <span style="flex:0 0 140px;">${name}${i===0?' <span style="color:var(--alert-400);font-size:10px;">PRIMARY</span>':''}</span>
+      <div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${(count/max*100)}%;${i===0?'background:var(--alert-500);':''}"></div></div>
+      <span class="mono" style="width:28px;text-align:right;">${count}</span>
+    </div>
+  `).join('');
+}
+function renderSLA(){
+  const ref = new Date('2026-07-24');
+  const overdue = CASES.filter(c=>c.status==='Under Investigation').map(c=>{
+    const days = Math.round((ref - new Date(c.date))/86400000);
+    return {...c, days};
+  }).filter(c=>c.days>45).sort((a,b)=>b.days-a.days).slice(0,12);
+  document.getElementById('sla-tbody').innerHTML = overdue.length ? overdue.map(c=>`
+    <tr><td class="mono">${c.crimeNo}</td><td>${c.district}</td><td>${c.crimeType}</td><td style="color:var(--alert-400);">${c.days} days</td></tr>
+  `).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--mute-500);">No overdue cases.</td></tr>';
+}
+</script>
+</body>
+</html>
