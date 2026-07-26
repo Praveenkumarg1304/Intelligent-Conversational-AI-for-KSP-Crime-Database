@@ -198,29 +198,63 @@
       <p>Intelligent Conversational AI · Datathon 2026 Prototype</p>
     </div>
     <div class="login-body">
-      <div id="login-form">
+
+      <!-- CHOICE SCREEN -->
+      <div id="auth-choice">
+        <p style="font-size:13px;color:var(--paper-300);margin:0 0 18px;text-align:center;">Welcome — are you signing in, or creating a new account?</p>
+        <button type="button" class="btn-primary" style="margin-bottom:10px;" onclick="showAuthScreen('signin')">Sign In (existing user)</button>
+        <button type="button" class="btn-ghost" style="width:100%;padding:12px;" onclick="showAuthScreen('signup')">Create Account (first-time user)</button>
+      </div>
+
+      <!-- SIGN IN -->
+      <div id="auth-signin" style="display:none;">
         <div class="field">
-          <label data-i18n="username">Your Name</label>
-          <input type="text" id="login-username" placeholder="e.g. Praveen Kumar" oninput="validateLoginForm()" onkeydown="if(event.key==='Enter')handleLogin(event)" autocomplete="off" />
-          <div id="login-name-error" style="display:none;color:var(--alert-400);font-size:11px;margin-top:5px;">Please enter a name using letters only (no numbers or symbols).</div>
+          <label>Your Name</label>
+          <input type="text" id="signin-username" placeholder="e.g. Praveen Kumar" oninput="validateSigninForm()" onkeydown="if(event.key==='Enter')handleSignIn(event)" autocomplete="off" />
         </div>
         <div class="field">
-          <label data-i18n="password">Password</label>
-          <input type="password" id="login-password" placeholder="••••••••" oninput="validateLoginForm()" onkeydown="if(event.key==='Enter')handleLogin(event)" autocomplete="off" />
-          <div id="login-password-error" style="display:none;color:var(--alert-400);font-size:11px;margin-top:5px;">Password must be at least 6 characters.</div>
+          <label>Password</label>
+          <input type="password" id="signin-password" placeholder="••••••••" oninput="validateSigninForm()" onkeydown="if(event.key==='Enter')handleSignIn(event)" autocomplete="off" />
+        </div>
+        <div id="signin-error" style="display:none;color:var(--alert-400);font-size:11px;margin-bottom:10px;">Name or password is incorrect, or no account exists yet — try creating one instead.</div>
+        <button type="button" class="btn-primary" id="signin-submit-btn" disabled onclick="handleSignIn(event)">Sign In</button>
+        <p class="login-hint" style="text-align:center;margin-top:12px;">First time here? <a href="#" onclick="showAuthScreen('signup');return false;" style="color:var(--brass-400);">Create an account</a></p>
+        <button type="button" class="btn-ghost" style="width:100%;margin-top:6px;" onclick="showAuthScreen('choice')">← Back</button>
+      </div>
+
+      <!-- SIGN UP -->
+      <div id="auth-signup" style="display:none;">
+        <div class="field">
+          <label>Your Name</label>
+          <input type="text" id="signup-username" placeholder="e.g. Praveen Kumar" oninput="validateSignupForm()" autocomplete="off" />
+          <div id="signup-name-error" style="display:none;color:var(--alert-400);font-size:11px;margin-top:5px;">Please enter a name using letters only (no numbers or symbols).</div>
         </div>
         <div class="field">
-          <label data-i18n="role">Role</label>
-          <select id="login-role">
+          <label>Password</label>
+          <input type="password" id="signup-password" placeholder="At least 6 characters" oninput="validateSignupForm()" autocomplete="off" />
+          <div id="signup-password-error" style="display:none;color:var(--alert-400);font-size:11px;margin-top:5px;">Password must be at least 6 characters.</div>
+        </div>
+        <div class="field">
+          <label>Confirm Password</label>
+          <input type="password" id="signup-password2" placeholder="Re-enter password" oninput="validateSignupForm()" onkeydown="if(event.key==='Enter')handleSignUp(event)" autocomplete="off" />
+          <div id="signup-match-error" style="display:none;color:var(--alert-400);font-size:11px;margin-top:5px;">Passwords do not match.</div>
+        </div>
+        <div class="field">
+          <label>Role</label>
+          <select id="signup-role">
             <option value="Constable">Constable — view only</option>
             <option value="SHO" selected>Sub-Inspector / SHO</option>
             <option value="Analyst">Analyst</option>
             <option value="Admin">SP / Admin</option>
           </select>
         </div>
-        <button type="button" class="btn-primary" data-i18n="login_btn" id="login-submit-btn" disabled onclick="handleLogin(event)">Sign in to Console</button>
+        <div id="signup-exists-error" style="display:none;color:var(--alert-400);font-size:11px;margin-bottom:10px;">An account with this name already exists this session — try signing in instead.</div>
+        <button type="button" class="btn-primary" id="signup-submit-btn" disabled onclick="handleSignUp(event)">Create Account</button>
+        <p class="login-hint" style="text-align:center;margin-top:12px;">Already have an account? <a href="#" onclick="showAuthScreen('signin');return false;" style="color:var(--brass-400);">Sign in</a></p>
+        <button type="button" class="btn-ghost" style="width:100%;margin-top:6px;" onclick="showAuthScreen('choice')">← Back</button>
       </div>
-      <p class="login-hint">Demo build — enter any name and a password of 6+ characters; both are validated client-side but not checked against a real account, since this prototype has no backend/user database yet. Role selection demonstrates role-based module access (constables see read-only dashboard/map/records; analysts and admins get network analysis and predictions). All case data below is synthetic, generated for this prototype only.</p>
+
+      <p class="login-hint">Demo build — accounts created here exist only for this browser session (no backend/database yet), and reset if the page is reloaded. All case data below is synthetic, generated for this prototype only.</p>
     </div>
   </div>
 </div>
@@ -525,26 +559,72 @@ function setLang(l){
 
 /* ===================== LOGIN / LOGOUT ===================== */
 const NAME_PATTERN = /^[A-Za-z][A-Za-z\s.'-]{1,49}$/;
-function validateLoginForm(){
-  const nameInput = document.getElementById('login-username');
-  const passInput = document.getElementById('login-password');
-  const nameErr = document.getElementById('login-name-error');
-  const passErr = document.getElementById('login-password-error');
-  const btn = document.getElementById('login-submit-btn');
-  const nameVal = nameInput.value.trim();
-  const passVal = passInput.value;
+let REGISTERED_USERS = []; // in-memory only — resets on page reload, since there's no backend/database yet
+
+function showAuthScreen(screen){
+  document.getElementById('auth-choice').style.display = screen==='choice' ? 'block' : 'none';
+  document.getElementById('auth-signin').style.display = screen==='signin' ? 'block' : 'none';
+  document.getElementById('auth-signup').style.display = screen==='signup' ? 'block' : 'none';
+  ['signin-error','signup-exists-error'].forEach(id=>document.getElementById(id).style.display='none');
+}
+
+function validateSigninForm(){
+  const nameVal = document.getElementById('signin-username').value.trim();
+  const passVal = document.getElementById('signin-password').value;
+  document.getElementById('signin-error').style.display = 'none';
+  document.getElementById('signin-submit-btn').disabled = !(nameVal.length>0 && passVal.length>0);
+  return nameVal.length>0 && passVal.length>0;
+}
+function handleSignIn(e){
+  if(e && e.preventDefault) e.preventDefault();
+  if(!validateSigninForm()) return false;
+  const name = document.getElementById('signin-username').value.trim();
+  const pass = document.getElementById('signin-password').value;
+  const account = REGISTERED_USERS.find(u=> u.name.toLowerCase()===name.toLowerCase() && u.password===pass);
+  if(!account){
+    document.getElementById('signin-error').style.display='block';
+    return false;
+  }
+  enterApp(account.name, account.role);
+  return false;
+}
+
+function validateSignupForm(){
+  const nameVal = document.getElementById('signup-username').value.trim();
+  const passVal = document.getElementById('signup-password').value;
+  const pass2Val = document.getElementById('signup-password2').value;
+  const nameErr = document.getElementById('signup-name-error');
+  const passErr = document.getElementById('signup-password-error');
+  const matchErr = document.getElementById('signup-match-error');
   const nameValid = NAME_PATTERN.test(nameVal);
   const passValid = passVal.length >= 6;
+  const matchValid = pass2Val.length===0 || pass2Val===passVal;
   nameErr.style.display = (nameVal.length>0 && !nameValid) ? 'block' : 'none';
   passErr.style.display = (passVal.length>0 && !passValid) ? 'block' : 'none';
-  btn.disabled = !(nameValid && passValid);
-  return nameValid && passValid;
+  matchErr.style.display = (pass2Val.length>0 && pass2Val!==passVal) ? 'block' : 'none';
+  document.getElementById('signup-exists-error').style.display='none';
+  const allValid = nameValid && passValid && pass2Val===passVal && pass2Val.length>0;
+  document.getElementById('signup-submit-btn').disabled = !allValid;
+  return allValid;
 }
-function handleLogin(e){
+function handleSignUp(e){
   if(e && e.preventDefault) e.preventDefault();
-  if(!validateLoginForm()) return false;
-  state.username = document.getElementById('login-username').value.trim();
-  state.role = document.getElementById('login-role').value;
+  if(!validateSignupForm()) return false;
+  const name = document.getElementById('signup-username').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const role = document.getElementById('signup-role').value;
+  if(REGISTERED_USERS.some(u=>u.name.toLowerCase()===name.toLowerCase())){
+    document.getElementById('signup-exists-error').style.display='block';
+    return false;
+  }
+  REGISTERED_USERS.push({name, password, role});
+  enterApp(name, role);
+  return false;
+}
+
+function enterApp(username, role){
+  state.username = username;
+  state.role = role;
   document.getElementById('login-view').style.display='none';
   document.getElementById('app').style.display='grid';
   document.getElementById('who-label').textContent = state.username+" · "+state.role;
@@ -553,16 +633,14 @@ function handleLogin(e){
   renderDashboard();
   populatePredictionSelectors();
   initChatbot();
-  return false;
 }
 function handleLogout(){
   document.getElementById('app').style.display='none';
   document.getElementById('login-view').style.display='flex';
-  document.getElementById('login-username').value='';
-  document.getElementById('login-password').value='';
-  document.getElementById('login-name-error').style.display='none';
-  document.getElementById('login-password-error').style.display='none';
-  document.getElementById('login-submit-btn').disabled = true;
+  ['signin-username','signin-password','signup-username','signup-password','signup-password2'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('signin-submit-btn').disabled = true;
+  document.getElementById('signup-submit-btn').disabled = true;
+  showAuthScreen('choice');
 }
 function applyRoleRestrictions(){
   const restricted = state.role==='Constable';
